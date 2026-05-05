@@ -1,5 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, NavLink, Navigate } from "react-router-dom";
-import { useAuth } from "./context/AuthContext"; // ✅ ADD
+import { BrowserRouter as Router, Routes, Route, NavLink } from "react-router-dom";
 
 import Players from "./pages/Players";
 import Matches from "./pages/Matches";
@@ -7,52 +6,42 @@ import Performance from "./pages/Performance";
 import Dashboard from "./pages/Dashboard";
 import Bowling from "./pages/Bowling";
 import PlayerDetail from "./pages/PlayerDetail";
-import Login from "./pages/Login"; // ✅ ADD
+import Login from "./pages/Login";
 
 function App() {
-  const { user } = useAuth(); // ✅ CHECK LOGIN
-
   return (
     <Router>
+      <div style={{ display: "flex", width: "100%" }}>
 
-      {/* 🔐 If NOT logged in → show login only */}
-     {!user ? (
-  <Routes>
-    <Route path="/login" element={<Login />} />
-    <Route path="*" element={<Navigate to="/login" />} />
-  </Routes>
-) : (
+        {/* SIDEBAR */}
+        <div style={sidebar}>
+          <h2 style={logo}>🏏 Cricket Pro</h2>
 
-        <div style={{ display: "flex", width: "100%" }}>
-
-          {/* SIDEBAR */}
-          <div style={sidebar}>
-            <h2 style={logo}>🏏 Cricket Pro</h2>
-
-            <nav style={nav}>
-              <NavItem to="/dashboard"   label="📊 Dashboard"   />
-              <NavItem to="/players"     label="👤 Players"     />
-              <NavItem to="/matches"     label="🏟 Matches"     />
-              <NavItem to="/performance" label="📈 Performance" />
-              <NavItem to="/bowling"     label="🎯 Bowling"     />
-            </nav>
-          </div>
-
-          {/* MAIN CONTENT */}
-          <div style={main}>
-            <Routes>
-              <Route path="/" element={<Navigate to="/dashboard" />} /> {/* ✅ FIX */}
-              <Route path="/dashboard"   element={<Dashboard />}   />
-              <Route path="/players"     element={<Players />}     />
-              <Route path="/players/:id" element={<PlayerDetail />} />
-              <Route path="/matches"     element={<Matches />}     />
-              <Route path="/performance" element={<Performance />} />
-              <Route path="/bowling"     element={<Bowling />}     />
-            </Routes>
-          </div>
-
+          <nav style={nav}>
+            <NavItem to="/dashboard"   label="📊 Dashboard" />
+            <NavItem to="/players"     label="👤 Players" />
+            <NavItem to="/matches"     label="🏟 Matches" />
+            <NavItem to="/performance" label="📈 Performance" />
+            <NavItem to="/bowling"     label="🎯 Bowling" />
+            <NavItem to="/login"       label="🔐 Login" /> {/* optional */}
+          </nav>
         </div>
-      )}
+
+        {/* MAIN */}
+        <div style={main}>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/players" element={<Players />} />
+            <Route path="/players/:id" element={<PlayerDetail />} />
+            <Route path="/matches" element={<Matches />} />
+            <Route path="/performance" element={<Performance />} />
+            <Route path="/bowling" element={<Bowling />} />
+            <Route path="/login" element={<Login />} /> {/* optional */}
+          </Routes>
+        </div>
+
+      </div>
     </Router>
   );
 }

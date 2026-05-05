@@ -31,7 +31,7 @@ html, body {
 }
 
 body {
-  background: var(--bg);
+  background: radial-gradient(circle at top, #1e293b, #020617 70%);
   overflow: hidden;
 }
 
@@ -46,12 +46,13 @@ body {
 .sidebar {
   width: 220px;
   height: 100vh;
-  background: #020617;
+  background: linear-gradient(180deg, #020617, #0f172a);
   padding: 20px;
   border-right: 1px solid var(--border);
   position: fixed;
   top: 0;
   left: 0;
+  box-shadow: 0 0 25px rgba(0,0,0,0.8);
 }
 
 .sidebar h2 {
@@ -106,6 +107,7 @@ body {
   font-size: 12px;
   font-weight: bold;
   animation: pulse 1.5s infinite;
+  box-shadow: 0 0 10px red;
 }
 
 @keyframes pulse {
@@ -129,10 +131,30 @@ body {
   background: linear-gradient(145deg, #1e293b, #020617);
   box-shadow: var(--shadow);
   transition: 0.3s;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(56, 189, 248, 0.1);
 }
 
 .highlight-card:hover {
   transform: translateY(-4px);
+  box-shadow: 0 0 20px rgba(56,189,248,0.4);
+}
+
+.highlight-card::before {
+  content: "";
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(56,189,248,0.15), transparent 60%);
+  top: -50%;
+  left: -50%;
+  transition: 0.5s;
+}
+
+.highlight-card:hover::before {
+  top: -20%;
+  left: -20%;
 }
 
 /* ================= CARD ================= */
@@ -143,6 +165,12 @@ body {
   border-radius: 16px;
   margin-bottom: 20px;
   box-shadow: var(--shadow);
+  border: 1px solid rgba(56, 189, 248, 0.1);
+  transition: 0.3s;
+}
+
+.card:hover {
+  border: 1px solid rgba(56, 189, 248, 0.4);
 }
 
 /* ================= MATCH CARD ================= */
@@ -158,23 +186,6 @@ body {
 
 .match-card:hover {
   transform: translateY(-3px);
-}
-
-.match-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.score {
-  margin-top: 10px;
-  font-size: 15px;
-}
-
-.result {
-  margin-top: 12px;
-  display: flex;
-  gap: 10px;
 }
 
 /* ================= PLAYER ROW ================= */
@@ -204,21 +215,6 @@ body {
   font-weight: bold;
 }
 
-/* ================= PROBABILITY ================= */
-
-.probability-bar {
-  height: 12px;
-  border-radius: 10px;
-  overflow: hidden;
-  background: #1e293b;
-  margin-top: 5px;
-}
-
-.probability-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #22c55e, #16a34a);
-}
-
 /* ================= HEADINGS ================= */
 
 h1, h2 {
@@ -229,11 +225,16 @@ h1, h2 {
 h1 {
   font-size: 32px;
   margin-bottom: 20px;
-  background: linear-gradient(90deg, #38bdf8, #22c55e);
-  background-clip: text;
+  background: linear-gradient(90deg, #38bdf8, #22c55e, #a855f7);
+  background-size: 200%;
+  animation: glowMove 3s linear infinite;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  color: transparent;
+}
+
+@keyframes glowMove {
+  0% { background-position: 0% }
+  100% { background-position: 200% }
 }
 
 h2 {
@@ -244,17 +245,18 @@ h2 {
 
 button {
   border: none;
-  border-radius: var(--radius);
-  padding: 8px 14px;
+  border-radius: 999px;
+  padding: 10px 16px;
   background: linear-gradient(90deg, #22c55e, #38bdf8);
   color: white;
   cursor: pointer;
-  transition: all 0.25s ease;
+  transition: 0.3s;
+  font-weight: bold;
 }
 
 button:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 6px 15px rgba(34, 197, 94, 0.4);
+  transform: scale(1.05);
+  box-shadow: 0 0 12px #38bdf8;
 }
 
 /* ================= INPUT ================= */
@@ -274,23 +276,23 @@ input:focus, select:focus {
   box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
 }
 
-/* ================= BADGES ================= */
+/* ================= TABLE ================= */
 
-.badge {
-  padding: 5px 10px;
-  border-radius: 8px;
-  font-size: 12px;
-  font-weight: bold;
+table {
+  width: 100%;
+  border-collapse: collapse;
 }
 
-.badge-win {
-  background: #22c55e;
-  color: white;
+table th, table td {
+  padding: 10px;
 }
 
-.badge-player {
-  background: #facc15;
-  color: black;
+table tbody tr {
+  border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+table tbody tr:hover {
+  background: rgba(255,255,255,0.05);
 }
 
 /* ================= SCROLL ================= */

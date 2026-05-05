@@ -460,30 +460,59 @@ def head_to_head():
 # ======================
 @app.route("/points-table", methods=["GET"])
 def points_table():
-    matches = list(db.matches.find()); table={}
+    matches = list(db.matches.find())
+    table = {}
+
     for m in matches:
-        mid=str(m["_id"]); t1=m.get("team1"); t2=m.get("team2")
-        if not t1 or not t2: continue
-        for t in [t1,t2]:
-            table.setdefault(t,{"team":t,"played":0,"won":0,"lost":0,"draw":0,"points":0,"nrr":0.0})
-        perfs=list(db.performances.find({"match_id":mid}))
-        scores={}
+        mid = str(m["_id"])
+        t1 = m.get("team1")
+        t2 = m.get("team2")
+        if not t1 or not t2:
+            continue
+
+        for t in (t1, t2):
+            table.setdefault(t, {
+                "team": t, "played": 0, "won": 0, "lost": 0,
+                "draw": 0, "points": 0, "nrr": 0.0
+            })
+
+        perfs = list(db.performances.find({"match_id": mid}))
+        scores = {}
         for p in perfs:
-            t=p.get("team")
-            if t: scores[t]=scores.get(t,0)+p.get("runs",0)
-        t1r=scores.get(t1,0); t2r=scores.get(t2,0)
-        table[t1]["played"]+=1; table[t2]["played"]+=1
-        if t1r>t2r:
-            table[t1]["won"]+=1; table[t1]["points"]+=2; table[t2]["lost"]+=1
-        elif t2r>t1r:
-            table[t2]["won"]+=1; table[t2]["points"]+=2; table[t1]["lost"]+=1
+            team = p.get("team")
+            if team:
+                scores[team] = scores.get(team, 0) + int(p.get("runs", 0))
+
+        t1r = scores.get(t1, 0)
+        t2r = scores.get(t2, 0)
+
+        table[t1]["played"] += 1
+        table[t2]["played"] += 1
+
+        if t1r > t2r:
+            table[t1]["won"] += 1
+            table[t1]["points"] += 2
+            table[t2]["lost"] += 1
+        elif t2r > t1r:
+            table[t2]["won"] += 1
+            table[t2]["points"] += 2
+            table[t1]["lost"] += 1
         else:
-            table[t1]["draw"]+=1; table[t1]["points"]+=1
-            table[t2]["draw"]+=1; table[t2]["points"]+=1
-        table[t1]["nrr"]=round(table[t1]["nrr"]+(t1r-t2r)/100,2)
-        table[t2]["nrr"]=round(table[t2]["nrr"]+(t2r-t1r)/100,2)
-    result=sorted(table.values(),key=lambda x:(-x["points"],-x["nrr"]))
-    return success(result)
+            table[t1]["draw"] += 1
+            table[t2]["draw"] += 1
+            table[t1]["points"] += 1
+            table[t2]["points"] += 1
+
+        table[t1]["nrr"] += (t1r - t2r) / 100.0
+        table[t2]["nrr"] += (t2r - t1r) / 100.0
+
+    result = list(table.values())
+    result.sort(key=lambda x: (-x["points"], -x["nrr"]))
+
+    for r in result:
+        r["nrr"] = round(r["nrr"], 2)
+
+    return jsonify({"status": "success", "data": result})
 
 # ======================
 # MATCH RESULT + POTM
@@ -627,6 +656,7 @@ def export_bowling():
     return send_file(io.BytesIO(output.getvalue().encode()),mimetype="text/csv",
                      as_attachment=True,download_name="bowling_stats.csv")
 
+    
 # ======================
 # RESET
 # ======================
