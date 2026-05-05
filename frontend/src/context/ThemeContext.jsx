@@ -3,13 +3,16 @@ import { createContext, useContext, useState, useEffect } from "react";
 const ThemeContext = createContext(null);
 
 export function ThemeProvider({ children }) {
+  // Logic: Initialize theme from localStorage, defaulting to dark mode
   const [dark, setDark] = useState(() => {
     return localStorage.getItem("cricket_theme") !== "light";
   });
 
+  // Action: Update localStorage and HTML attribute whenever the theme changes
   useEffect(() => {
-    localStorage.setItem("cricket_theme", dark ? "dark" : "light");
-    document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+    const themeValue = dark ? "dark" : "light";
+    localStorage.setItem("cricket_theme", themeValue);
+    document.documentElement.setAttribute("data-theme", themeValue);
   }, [dark]);
 
   const toggle = () => setDark(d => !d);
@@ -21,6 +24,7 @@ export function ThemeProvider({ children }) {
   );
 }
 
+// Hook: Easy access to theme state and toggle function
 export function useTheme() {
   return useContext(ThemeContext);
 }

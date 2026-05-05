@@ -5,14 +5,17 @@ const ToastContext = createContext(null);
 export function ToastProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
+  // Action: Add a new notification that automatically expires after 3.5 seconds
   const addToast = useCallback((message, type = "success") => {
     const id = Date.now() + Math.random();
     setToasts(prev => [...prev, { id, message, type }]);
+    
     setTimeout(() => {
       setToasts(prev => prev.filter(t => t.id !== id));
     }, 3500);
   }, []);
 
+  // Action: Manually remove a notification when clicked
   const removeToast = useCallback((id) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
@@ -24,7 +27,10 @@ export function ToastProvider({ children }) {
         {toasts.map(t => (
           <div
             key={t.id}
-            style={{ ...toast, ...(t.type === "error" ? toastError : t.type === "info" ? toastInfo : toastSuccess) }}
+            style={{ 
+              ...toast, 
+              ...(t.type === "error" ? toastError : t.type === "info" ? toastInfo : toastSuccess) 
+            }}
             onClick={() => removeToast(t.id)}
           >
             <span style={{ marginRight: 8 }}>
@@ -38,12 +44,14 @@ export function ToastProvider({ children }) {
   );
 }
 
+// Hook: Easy access to trigger notifications from any page[cite: 1]
 export function useToast() {
   const ctx = useContext(ToastContext);
   if (!ctx) throw new Error("useToast must be used within ToastProvider");
   return ctx;
 }
 
+/* ================= STYLES =================[cite: 1] */
 const container = {
   position:      "fixed",
   bottom:        24,
@@ -64,11 +72,11 @@ const toast = {
   boxShadow:    "0 8px 24px rgba(0,0,0,0.4)",
   cursor:       "pointer",
   pointerEvents:"all",
-  animation:    "slideIn 0.3s ease",
   display:      "flex",
   alignItems:   "center",
   minWidth:     220,
   maxWidth:     340,
+  transition:   "all 0.3s ease"
 };
 
 const toastSuccess = { background: "linear-gradient(135deg,#16a34a,#15803d)" };

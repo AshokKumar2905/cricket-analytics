@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
 import api from "../api";
+import { CardSkeleton } from "../components/Skeleton"; // Using your existing skeleton component
 
 function Bowling() {
   const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // API endpoint remains as defined in your logic
     api.get("/bowling-stats")
       .then(res => {
         setData(res.data.data || []);
@@ -17,32 +19,42 @@ function Bowling() {
       });
   }, []);
 
-  if (loading) return <h2>Loading Bowling Stats...</h2>;
+  if (loading) return (
+    <div style={{ padding: "20px" }}>
+      <h1 style={title}>🎯 Bowling Analytics</h1>
+      <CardSkeleton /> 
+    </div>
+  );
 
   return (
-    <div>
-      <h1 style={title}>🎯 Bowling Analytics</h1>
+    <div className="page-fade-in">
+      <div style={headerSection}>
+        <h1 style={title}>🎯 Bowling Analytics</h1>
+        <p style={subtitle}>Detailed bowler impact and economy metrics</p>
+      </div>
 
       {data.length === 0 ? (
-        <p style={{ color: "#94a3b8" }}>No bowling data available. Add performances first.</p>
+        <div style={emptyState}>
+          <p>No bowling data available. Add match performances to see insights.</p>
+        </div>
       ) : (
-        <div style={tableContainer}>
+        <div className="card" style={tableContainer}>
           <table style={table}>
             <thead>
               <tr style={theadRow}>
-                <th style={th}>#</th>
-                <th style={th}>Player</th>
-                <th style={th}>Wickets</th>
-                <th style={th}>Overs</th>
-                <th style={th}>Runs</th>
-                <th style={th}>Economy</th>
+                <th style={th}>RANK</th>
+                <th style={th}>PLAYER</th>
+                <th style={th}>WICKETS</th>
+                <th style={th}>OVERS</th>
+                <th style={th}>RUNS</th>
+                <th style={th}>ECONOMY</th>
               </tr>
             </thead>
             <tbody>
               {data.map((p, index) => (
-                <tr key={p.name || index} style={row}>
+                <tr key={p.name || index} style={row} className="table-row-hover">
                   <td style={td}>{index + 1}</td>
-                  <td style={td}>{p.name}</td>
+                  <td style={td}><strong>{p.name}</strong></td>
                   <td style={{ ...td, ...highlightWicket }}>{p.wickets}</td>
                   <td style={td}>{p.overs}</td>
                   <td style={td}>{p.runs_conceded}</td>
@@ -58,56 +70,79 @@ function Bowling() {
 }
 
 /* ================= STYLES ================= */
+
+const headerSection = {
+  marginBottom: "30px"
+};
+
 const title = {
-  marginBottom:         "20px",
-  background:           "linear-gradient(90deg, #38bdf8, #22c55e)",
+  margin: 0,
+  background: "linear-gradient(90deg, #38bdf8, #22c55e)",
   WebkitBackgroundClip: "text",
-  color:                "transparent",
-  fontWeight:           "bold"
+  color: "transparent",
+  fontWeight: "bold",
+  fontSize: "28px"
+};
+
+const subtitle = {
+  color: "#94a3b8",
+  marginTop: "8px",
+  fontSize: "14px"
+};
+
+const emptyState = {
+  padding: "40px",
+  textAlign: "center",
+  color: "#64748b",
+  background: "#0f172a",
+  borderRadius: "12px",
+  border: "1px dashed #1e293b"
 };
 
 const tableContainer = {
-  background:   "linear-gradient(145deg, #1e293b, #020617)",
-  padding:      "20px",
+  background: "#0f172a",
+  padding: "24px",
   borderRadius: "16px",
-  boxShadow:    "0 10px 25px rgba(0,0,0,0.6)"
+  border: "1px solid #1e293b",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.4)"
 };
 
 const table = {
-  width:           "100%",
-  borderCollapse:  "collapse",
-  color:           "white"
+  width: "100%",
+  borderCollapse: "collapse",
+  color: "white"
 };
 
 const theadRow = {
-  borderBottom: "2px solid #475569",
-  textAlign:    "left"
+  borderBottom: "1px solid #1e293b",
+  textAlign: "left"
 };
 
 const th = {
-  padding:      "10px 14px",
-  color:        "#94a3b8",
-  fontSize:     "13px",
-  fontWeight:   "600",
-  letterSpacing:"0.05em"
+  padding: "12px 16px",
+  color: "#64748b",
+  fontSize: "12px",
+  fontWeight: "700",
+  letterSpacing: "0.1em",
+  textTransform: "uppercase"
 };
 
 const row = {
-  borderBottom: "1px solid #334155",
-  transition:   "background 0.2s"
+  borderBottom: "1px solid #1e293b",
+  transition: "all 0.2s"
 };
 
 const td = {
-  padding: "12px 14px"
+  padding: "16px"
 };
 
 const highlightWicket = {
-  color:      "#22c55e",
+  color: "#22c55e", // Green for positive performance (wickets)
   fontWeight: "bold"
 };
 
 const highlightEco = {
-  color:      "#38bdf8",
+  color: "#38bdf8", // Blue for economy metrics[cite: 1]
   fontWeight: "bold"
 };
 

@@ -1,14 +1,14 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../api";
 import { useToast } from "../context/ToastContext";
 import { CardSkeleton } from "../components/Skeleton";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip,
-  ResponsiveContainer, Cell
+  ResponsiveContainer, Cell, CartesianGrid
 } from "recharts";
 
-const BAR_COLORS = ["#38bdf8","#22c55e","#a855f7","#f59e0b","#ef4444","#06b6d4","#ec4899"];
+const BAR_COLORS = ["#38bdf8", "#22c55e", "#a855f7", "#f59e0b", "#ef4444", "#06b6d4"];
 
 export default function Dashboard() {
   const [teams, setTeams] = useState([]);
@@ -17,282 +17,252 @@ export default function Dashboard() {
   const [matchData, setMatchData] = useState(null);
   const [mode, setMode] = useState("tournament");
   const [loading, setLoading] = useState(true);
-
   const [performances, setPerformances] = useState([]);
-  const [pointsTable, setPointsTable] = useState([]); // ✅ ADDED
+  const [pointsTable, setPointsTable] = useState([]);
 
   const navigate = useNavigate();
   const { addToast } = useToast();
-  const potm = matchData?.player_of_match;
 
+  // Logic: Initial Fetch - Synchronized with Flask app.py
   useEffect(() => {
-    api.get("/matches")
-      .then(res => {
-        const list = res.data.data || [];
-        setMatches(list);
-        if (list.length > 0) setSelectedMatch(list[0].id);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    api.get("/performance")
-      .then(res => {
-        setPerformances(res.data.data || []);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    setLoading(true);
-
-    if (mode === "tournament") {
-      api.get("/leaderboard")
-        .then(res => {
-          setTeams(res.data.data || []);
-
-          // ✅ FETCH POINTS TABLE
-          return api.get("/points-table");
-        })
-        .then(res => {
-          setPointsTable(res.data.data || []);
-          setLoading(false);
-        })
-        .catch(() => setLoading(false));
-    } else {
-      if (!selectedMatch) {
-        setLoading(false);
-        return;
+    const initFetch = async () => {
+      try {
+        const [mRes, pRes] = await Promise.all([
+          api.get("/matches"),
+          api.get("/performance")
+        ]);
+        const matchList = mRes.data.data || [];
+        setMatches(matchList);
+        setPerformances(pRes.data.data || []);
+        if (matchList.length > 0) setSelectedMatch(matchList[0].id);
+      } catch (err) {
+        console.error("Dashboard Sync Error:", err);
       }
-      api.get(`/match-result/${selectedMatch}`)
-  .then(res => {
-    setMatchData({
-      ...res.data.data.match,
-      player_of_match: res.data.data.player_of_match   // ✅ FIX
-    });
-    setLoading(false);
-  })
-        .catch(() => setLoading(false));
-    }
-  }, [mode, selectedMatch]);
+    };
+    initFetch();
+  }, []);
+
+  // Logic: Mode Switching - Fetches Leaderboard or specific Match Results
+  useEffect(() => {
+    const fetchModeData = async () => {
+      setLoading(true);
+      try {
+        if (mode === "tournament") {
+          const [lRes, ptRes] = await Promise.all([
+            api.get("/leaderboard"),
+            api.get("/points-table")
+          ]);
+          setTeams(lRes.data.data || []);
+          setPointsTable(ptRes.data.data || []);
+        } else if (selectedMatch) {
+          const res = await api.get(`/match-result/${selectedMatch}`);
+          setMatchData(res.data.data);
+        }
+      } catch (err) {
+        addToast("Failed to fetch analytics", "error");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchModeData();
+  }, [mode, selectedMatch, addToast]);
+
+  // Analytics Helpers using useMemo for efficiency
+  const topPlayerTour = useMemo(() => {
+    const all = teams.flatMap(t => t.players || []);
+    return all.length ? [...all].sort((a,b) => b.runs - a.runs)[0] : null;
+  }, [teams]);
+
+  const matchPlayers = useMemo(() => 
+    performances.filter(p => p.match_id === selectedMatch),
+  [performances, selectedMatch]);
+
+  const topTeam = mode === "match" 
+    ? (matchData ? { team: matchData.match.winner, total_runs: matchData.match.winner === matchData.match.team1 ? matchData.match.team1_runs : matchData.match.team2_runs } : null)
+    : teams[0];
 
   const handleReset = async () => {
-    if (!window.confirm("⚠️ Delete ALL data?")) return;
+    if (!window.confirm("⚠️ Reset ALL tournament data?")) return;
     try {
       await api.delete("/reset-all");
-      setTeams([]);
-      setMatchData(null);
-      setPerformances([]);
-      setPointsTable([]); // ✅ ADDED
-      addToast("All data reset successfully");
+      setTeams([]); setPointsTable([]); setPerformances([]);
+      addToast("Database Cleared", "success");
+      window.location.reload(); 
     } catch {
-      addToast("Failed to reset", "error");
+      addToast("Reset Failed", "error");
     }
   };
 
-  const allPlayers = teams.flatMap(t => t.players || []);
-  const topTeamTour = teams[0];
-
-  const topPlayerTour = allPlayers.length
-    ? [...allPlayers].sort((a,b)=>b.runs-a.runs)[0]
-    : null;
-
-  const matchPlayers = performances.filter(
-    p => p.match_id === selectedMatch
-  );
-
-  const topPlayerMatch = matchPlayers.length
-    ? [...matchPlayers].sort((a,b)=>b.runs-a.runs)[0]
-    : null;
-
-  const totalPlayersMatch = matchPlayers.length;
-
-  const topTeamMatch = matchData ? {
-    team: matchData.winner,
-    total_runs:
-      matchData.winner === matchData.team1
-        ? matchData.team1_runs
-        : matchData.team2_runs
-  } : null;
-
-  const topTeam   = mode === "match" ? topTeamMatch : topTeamTour;
-  const topPlayer = mode === "match" ? topPlayerMatch : topPlayerTour;
-
   return (
-    <div>
-
-      <div className="hero">
+    <div className="page-fade-in">
+      {/* HEADER WITH DYNAMIC LIVE BADGE */}
+      <div style={headerSection}>
         <div>
-          <h1>🏏 Live Cricket Dashboard</h1>
-          <p style={{ color:"#94a3b8" }}>
-            Real-time match insights & player performance
-          </p>
+          <h1 className="glow-text">🏏 Cric Analytics Pro</h1>
+          <p style={{ color: "#94a3b8", margin: 0 }}>Precision Tournament Intelligence</p>
         </div>
-        <div className="live-badge">LIVE</div>
+        <div className="live-badge" style={{ 
+          background: matches.some(m => m.status === 'live') ? '#ef4444' : '#1e293b' 
+        }}>
+          {matches.some(m => m.status === 'live') ? 'LIVE UPDATES' : 'SYSTEM READY'}
+        </div>
       </div>
 
-      <div style={{
-        display:"flex", gap:12, marginBottom:20,
-        flexWrap:"wrap", alignItems:"center"
-      }}>
-        <button onClick={() => setMode("tournament")}>
-          🏆 Tournament
-        </button>
-
-        <button onClick={() => setMode("match")}>
-          🏟 Match
-        </button>
+      {/* DASHBOARD CONTROLS */}
+      <div style={controlsRow}>
+        <div style={toggleGroup}>
+          <button style={mode === "tournament" ? activeBtn : inactiveBtn} onClick={() => setMode("tournament")}>🏆 Tournament</button>
+          <button style={mode === "match" ? activeBtn : inactiveBtn} onClick={() => setMode("match")}>🏟 Match View</button>
+        </div>
 
         {mode === "match" && (
-          <select
-            value={selectedMatch}
-            onChange={e => setSelectedMatch(e.target.value)}
-          >
+          <select style={matchSelector} value={selectedMatch} onChange={e => setSelectedMatch(e.target.value)}>
             {matches.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.team1} vs {m.team2} ({m.format})
-              </option>
+              <option key={m.id} value={m.id}>{m.team1} vs {m.team2} ({m.date})</option>
             ))}
           </select>
         )}
-
-        <button onClick={handleReset} style={{ marginLeft:"auto" }}>
-          🗑 Reset All
-        </button>
+        <button onClick={handleReset} style={resetBtn}>🗑 Full Reset</button>
       </div>
 
-      {/* SUMMARY */}
+      {/* DYNAMIC ANALYTICS CARDS */}
       <div className="top-cards">
-        {[
-          {
-            label: mode==="match" ? "🏆 Winner" : "🏆 Top Team",
-            val: topTeam?.team || "—",
-            sub: `${topTeam?.total_runs ?? 0} Runs`
-          },
-
-          mode === "match"
-            ? {
-                label: "🏆 Player of Match",
-                val: potm?.name || "—",
-                sub: potm ? `Impact Score: ${potm.score}` : ""
-              }
-            : {
-                label: "🥇 Best Batter",
-                val: topPlayer?.name || "—",
-                sub: `${topPlayer?.runs ?? 0} Runs`
-              },
-
-          {
-            label: "👥 Teams",
-            val: mode==="match" ? (matchData ? 2 : 0) : teams.length
-          },
-          {
-            label: "🧑‍🤝‍🧑 Players",
-            val: mode==="match" ? totalPlayersMatch : allPlayers.length
-          }
-        ].map((c,i) => (
-          <div key={i} className="highlight-card">
-            <p>{c.label}</p>
-            <h2>{c.val}</h2>
-            {c.sub && <p>{c.sub}</p>}
-          </div>
-        ))}
+        <HighlightCard 
+          label={mode === "match" ? "Match Winner" : "Tourney Leader"} 
+          val={topTeam?.team || "—"} 
+          sub={topTeam ? `${topTeam.total_runs} Total Runs` : "No Records"} 
+        />
+        <HighlightCard 
+          label={mode === "match" ? "Top Performer" : "Orange Cap"} 
+          val={mode === "match" ? (matchData?.player_of_match?.name || "—") : (topPlayerTour?.name || "—")} 
+          sub={mode === "match" ? `Impact: ${matchData?.player_of_match?.score || 0}` : `${topPlayerTour?.runs || 0} Runs`} 
+        />
+        <HighlightCard label="Active Teams" val={mode === "match" ? 2 : teams.length} sub="Squads" />
+        <HighlightCard label="Registered Players" val={mode === "match" ? matchPlayers.length : performances.length} sub="Athletes" />
       </div>
 
-      {/* MATCH VIEW */}
-      {mode === "match" && loading && <CardSkeleton />}
-
-      {mode === "match" && !loading && matchData && (
-        <div className="card">
-          <h2>🏟 Match Summary</h2>
-
-          <div style={row}>
-            <span>{matchData.team1}</span>
-            <span style={run}>{matchData.team1_runs} runs</span>
-          </div>
-
-          <div style={row}>
-            <span>{matchData.team2}</span>
-            <span style={run}>{matchData.team2_runs} runs</span>
-          </div>
-        </div>
-      )}
-
-      {/* TOURNAMENT */}
-      {mode === "tournament" && loading && [1,2].map(i => <CardSkeleton key={i} />)}
-
-      {mode === "tournament" && !loading && teams.length === 0 && (
-        <p>No data yet.</p>
-      )}
-
-      {mode === "tournament" && teams.map(team => {
-        const players = team.players || [];
-
-        return (
-          <div key={team.team} className="card">
-            <h2>🏏 {team.team}</h2>
-
-            {players.map((p,i) => (
-              <div
-                key={p.player_id || i}
-                onClick={() => p.player_id && navigate(`/players/${p.player_id}`)}
-              >
-                {p.name} - {p.runs} runs
+      <div style={mainGrid}>
+        <div style={{ flex: 2 }}>
+          {mode === "tournament" ? (
+            <>
+              <div className="card" style={{ height: 350 }}>
+                <h2>📊 Scoring Distribution by Team</h2>
+                <ResponsiveContainer width="100%" height="90%">
+                  <BarChart data={teams}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
+                    <XAxis dataKey="team" stroke="#94a3b8" fontSize={12} />
+                    <YAxis stroke="#94a3b8" fontSize={12} />
+                    <Tooltip contentStyle={tooltipStyle} />
+                    <Bar dataKey="total_runs" radius={[4, 4, 0, 0]}>
+                      {teams.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={BAR_COLORS[index % BAR_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
-            ))}
-          </div>
-        );
-      })}
 
-      {/* ✅ POINTS TABLE UI */}
-      {mode === "tournament" && pointsTable.length > 0 && (
-        <div className="card" style={{ marginTop:20 }}>
-          <h2>📊 Points Table</h2>
-
-          <table style={{ width:"100%", marginTop:10 }}>
-            <thead>
-              <tr style={{ color:"#94a3b8", textAlign:"left" }}>
-                <th>Team</th>
-                <th>P</th>
-                <th>W</th>
-                <th>L</th>
-                <th>D</th>
-                <th>Pts</th>
-                <th>NRR</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {pointsTable.map((t,i) => (
-                <tr key={i}>
-                  <td>{t.team}</td>
-                  <td>{t.played}</td>
-                  <td>{t.won}</td>
-                  <td>{t.lost}</td>
-                  <td>{t.draw}</td>
-                  <td style={{ color:"#22c55e" }}>{t.points}</td>
-                  <td style={{ color:"#38bdf8" }}>{t.nrr}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+              {/* POINTS TABLE COMPONENT */}
+              <div className="card" style={{ marginTop: 20 }}>
+                <h2>📈 Live Standings (NRR Calculated)</h2>
+                <div style={{ overflowX: "auto" }}>
+                  <table style={tableStyle}>
+                    <thead>
+                      <tr style={tableHeader}>
+                        <th>TEAM</th><th>P</th><th>W</th><th>L</th><th>PTS</th><th>NRR</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pointsTable.map((t, i) => (
+                        <tr key={i} style={tableRow}>
+                          <td style={{ fontWeight: "bold" }}>{t.team}</td>
+                          <td>{t.played}</td>
+                          <td style={{ color: "#22c55e" }}>{t.won}</td>
+                          <td style={{ color: "#ef4444" }}>{t.lost}</td>
+                          <td style={{ color: "#38bdf8", fontWeight: "bold" }}>{t.points}</td>
+                          <td style={{ color: t.nrr >= 0 ? "#22c55e" : "#ef4444" }}>{t.nrr}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="card">
+              <h2>🏟 Match Scorecard Insights</h2>
+              {matchData ? (
+                <div style={scorecardContainer}>
+                  <ScoreRow team={matchData.match.team1} runs={matchData.match.team1_runs} />
+                  <div style={vsDivider}>VS</div>
+                  <ScoreRow team={matchData.match.team2} runs={matchData.match.team2_runs} />
+                </div>
+              ) : <p>Select a match to load results.</p>}
+            </div>
+          )}
         </div>
-      )}
 
+        <div style={{ flex: 1 }}>
+          <div className="card">
+            <h2>🥇 {mode === "tournament" ? "Tournament Top 5" : "Match Leaders"}</h2>
+            <div style={leaderList}>
+              {(mode === "tournament" ? teams.flatMap(t => t.players).sort((a,b)=>b.runs-a.runs).slice(0, 5) : matchPlayers.sort((a,b)=>b.runs-a.runs)).map((p, i) => (
+                <div key={i} style={leaderItem} onClick={() => navigate(`/players/${p.player_id || p.id}`)}>
+                  <span style={rankBadge}>{i + 1}</span>
+                  <div style={{ flex: 1 }}>
+                    <p style={leaderName}>{p.name}</p>
+                    <p style={leaderSub}>{p.team}</p>
+                  </div>
+                  <span style={leaderRuns}>{p.runs}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-const row = {
-  display:"flex",
-  justifyContent:"space-between",
-  padding:"12px",
-  background:"rgba(255,255,255,0.04)",
-  borderRadius:"10px",
-  marginBottom:"8px"
-};
+// Sub-components
+function HighlightCard({ label, val, sub }) {
+  return (
+    <div className="highlight-card">
+      <p style={{ color: "#94a3b8", fontSize: "11px", textTransform: "uppercase", marginBottom: "4px" }}>{label}</p>
+      <h2 style={{ fontSize: "22px", margin: "0 0 2px 0", color: "#f8fafc" }}>{val}</h2>
+      <p style={{ color: "#38bdf8", fontSize: "11px", margin: 0 }}>{sub}</p>
+    </div>
+  );
+}
 
-const run = {
-  color:"#38bdf8",
-  fontWeight:"bold"
-};
+function ScoreRow({ team, runs }) {
+  return (
+    <div style={scoreRow}>
+      <span style={{ fontSize: "16px", fontWeight: "bold" }}>{team}</span>
+      <span style={{ fontSize: "22px", color: "#38bdf8", fontWeight: "800" }}>{runs}</span>
+    </div>
+  );
+}
+
+/* ================= STYLES (Synchronized with index.css) ================= */
+const headerSection = { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "30px" };
+const controlsRow = { display: "flex", gap: "12px", marginBottom: "25px", flexWrap: "wrap", alignItems: "center" };
+const toggleGroup = { display: "flex", background: "#0f172a", borderRadius: "10px", padding: "4px", border: "1px solid #1e293b" };
+const activeBtn = { background: "#38bdf8", color: "#020617", border: "none", padding: "8px 16px", borderRadius: "8px", fontWeight: "bold", cursor: "pointer" };
+const inactiveBtn = { background: "transparent", color: "#94a3b8", border: "none", padding: "8px 16px", borderRadius: "8px", cursor: "pointer" };
+const matchSelector = { background: "#0f172a", color: "white", border: "1px solid #1e293b", padding: "8px 12px", borderRadius: "8px" };
+const resetBtn = { marginLeft: "auto", background: "rgba(239, 68, 68, 0.1)", color: "#ef4444", border: "1px solid #ef4444", padding: "8px 16px", borderRadius: "8px", cursor: "pointer" };
+const mainGrid = { display: "flex", gap: "20px", flexWrap: "wrap" };
+const tableStyle = { width: "100%", borderCollapse: "collapse", marginTop: "15px" };
+const tableHeader = { color: "#64748b", fontSize: "11px", textAlign: "left", textTransform: "uppercase" };
+const tableRow = { borderBottom: "1px solid rgba(255,255,255,0.05)", height: "45px", fontSize: "13px" };
+const leaderList = { display: "flex", flexDirection: "column", gap: "10px", marginTop: "15px" };
+const leaderItem = { display: "flex", alignItems: "center", gap: "10px", padding: "8px", borderRadius: "8px", background: "rgba(255,255,255,0.02)", cursor: "pointer" };
+const rankBadge = { width: "22px", height: "22px", borderRadius: "50%", background: "#1e293b", color: "#38bdf8", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px", fontWeight: "bold" };
+const leaderName = { margin: 0, color: "#f8fafc", fontWeight: "bold", fontSize: "14px" };
+const leaderSub = { margin: 0, color: "#64748b", fontSize: "10px" };
+const leaderRuns = { color: "#38bdf8", fontWeight: "800", fontSize: "16px" };
+const tooltipStyle = { background: "#020617", border: "1px solid #1e293b", borderRadius: "8px", color: "white" };
+const scorecardContainer = { padding: "15px", textAlign: "center" };
+const scoreRow = { display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px", background: "rgba(255,255,255,0.02)", borderRadius: "10px", marginBottom: "8px" };
+const vsDivider = { fontSize: "11px", color: "#64748b", margin: "8px 0" };

@@ -9,123 +9,177 @@ function PlayerDetail() {
   const [stats, setStats]       = useState(null);
   const [loading, setLoading]   = useState(true);
 
-  // =========================
-  // FETCH PLAYER + STATS IN PARALLEL
-  // =========================
+  // Fetch Player and Stats concurrently using your existing api.js logic
   useEffect(() => {
+    setLoading(true);
     Promise.all([
       api.get("/players"),
-      api.get("/player-stats")   // correct endpoint (was missing in backend)
+      api.get("/player-stats") 
     ])
       .then(([playersRes, statsRes]) => {
         const players  = playersRes.data.data  || [];
         const allStats = statsRes.data.data    || [];
 
-        const foundPlayer = players.find(p => p.id === id) || null;
+        const foundPlayer = players.find(p => String(p.id) === String(id)) || null;
 
-        // BUG FIX: match by player_id, not by name
-        const foundStats  = allStats.find(s => s.player_id === id) || {};
+        // BUG FIX: Strictly match by player_id
+        const foundStats  = allStats.find(s => String(s.player_id) === String(id)) || {};
 
         setPlayer(foundPlayer);
         setStats(foundStats);
       })
-      .catch(err => console.error("PlayerDetail error:", err))
+      .catch(err => {
+        console.error("PlayerDetail fetch error:", err);
+      })
       .finally(() => setLoading(false));
   }, [id]);
 
-  if (loading)  return <h2>Loading...</h2>;
-  if (!player)  return (
-    <div>
-      <h2>Player not found.</h2>
+  if (loading) return (
+    <div style={{ padding: "40px", textAlign: "center", color: "#38bdf8" }}>
+      <h2>Loading Player Profile...</h2>
+    </div>
+  );
+
+  if (!player) return (
+    <div style={{ padding: "40px", textAlign: "center" }}>
+      <h2 style={{ color: "#ef4444" }}>Player not found.</h2>
       <button onClick={() => navigate("/players")} style={btnBack}>← Back to Players</button>
     </div>
   );
 
   return (
-    <div>
-      {/* BACK BUTTON */}
-      <button onClick={() => navigate("/players")} style={btnBack}>← Back</button>
+    <div className="page-fade-in">
+      {/* NAVIGATION */}
+      <button onClick={() => navigate("/players")} style={btnBack}>← Back to Players</button>
 
-      {/* HEADER */}
-      <h1 style={titleStyle}>{player.name}</h1>
-      <p style={roleStyle}>{player.role}</p>
-
-      {/* BATTING CARD */}
-      <div style={card}>
-        <h3 style={{ marginBottom: "15px" }}>🏏 Batting Stats</h3>
-        <div style={statsGrid}>
-          <Stat label="Runs"        value={stats.runs        ?? 0} />
-          <Stat label="Balls Faced" value={stats.balls       ?? 0} />
-          <Stat label="Strike Rate" value={stats.strike_rate ?? 0} />
-        </div>
+      {/* PLAYER IDENTITY SECTION */}
+      <div style={headerSection}>
+        <h1 style={titleStyle}>{player.name}</h1>
+        <p style={roleStyle}>{player.role} • ID: {player.id}</p>
       </div>
 
-      {/* BOWLING CARD */}
-      <div style={{ ...card, marginTop: "20px" }}>
-        <h3 style={{ marginBottom: "15px" }}>🎯 Bowling Stats</h3>
-        <div style={statsGrid}>
-          <Stat label="Wickets"      value={stats.wickets      ?? 0}     />
-          <Stat label="Overs"        value={stats.overs        ?? "0.0"} />
-          <Stat label="Runs Conceded" value={stats.runs_conceded ?? 0}   />
-          <Stat label="Economy"      value={stats.economy      ?? 0}     />
+      {/* STATS CONTAINERS */}
+      <div style={gridContainer}>
+        {/* BATTING CARD */}
+        <div style={card}>
+          <h3 style={cardTitle}>🏏 Batting Analytics</h3>
+          <div style={statsGrid}>
+            <Stat label="Runs"         value={stats.runs        ?? 0} />
+            <Stat label="Balls Faced"  value={stats.balls       ?? 0} />
+            <Stat label="Strike Rate"  value={stats.strike_rate ?? "0.00"} />
+          </div>
+        </div>
+
+        {/* BOWLING CARD */}
+        <div style={card}>
+          <h3 style={cardTitle}>🎯 Bowling Analytics</h3>
+          <div style={statsGrid}>
+            <Stat label="Wickets"       value={stats.wickets       ?? 0}     />
+            <Stat label="Overs"         value={stats.overs         ?? "0.0"} />
+            <Stat label="Runs Conceded" value={stats.runs_conceded ?? 0}     />
+            <Stat label="Economy"       value={stats.economy       ?? "0.00"} />
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-/* ================= STAT BOX ================= */
+/* ================= HELPER COMPONENTS ================= */
 function Stat({ label, value }) {
   return (
     <div style={statBox}>
-      <h4 style={{ marginBottom: 6, color: "#94a3b8", fontSize: "13px" }}>{label}</h4>
-      <p style={{ fontWeight: "bold", fontSize: "22px", margin: 0 }}>{value}</p>
+      <h4 style={statLabel}>{label}</h4>
+      <p style={statValue}>{value}</p>
     </div>
   );
 }
 
 /* ================= STYLES ================= */
+const headerSection = {
+  marginBottom: "30px",
+  borderBottom: "1px solid #1e293b",
+  paddingBottom: "15px"
+};
+
 const titleStyle = {
-  marginBottom:         "6px",
-  background:           "linear-gradient(90deg, #38bdf8, #22c55e)",
+  margin: "0 0 5px 0",
+  background: "linear-gradient(90deg, #38bdf8, #22c55e)",
   WebkitBackgroundClip: "text",
-  color:                "transparent",
-  fontWeight:           "bold"
+  WebkitTextFillColor: "transparent",
+  fontWeight: "bold",
+  fontSize: "36px"
 };
 
 const roleStyle = {
-  marginBottom: "20px",
-  color:        "#94a3b8"
+  margin: 0,
+  color: "#94a3b8",
+  fontSize: "16px",
+  letterSpacing: "0.05em",
+  textTransform: "uppercase"
+};
+
+const gridContainer = {
+  display: "flex",
+  flexDirection: "column",
+  gap: "20px"
 };
 
 const card = {
-  background:   "linear-gradient(145deg, #1e293b, #020617)",
-  padding:      "20px",
+  background: "#0f172a",
+  padding: "25px",
   borderRadius: "16px",
-  boxShadow:    "0 10px 25px rgba(0,0,0,0.6)"
+  border: "1px solid #1e293b",
+  boxShadow: "0 4px 20px rgba(0,0,0,0.4)"
+};
+
+const cardTitle = {
+  margin: "0 0 20px 0",
+  fontSize: "18px",
+  color: "#f8fafc",
+  borderLeft: "4px solid #38bdf8",
+  paddingLeft: "12px"
 };
 
 const statsGrid = {
-  display:             "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
-  gap:                 "15px"
+  display: "grid",
+  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+  gap: "15px"
 };
 
 const statBox = {
-  background:   "#334155",
-  padding:      "15px",
-  borderRadius: "10px",
-  textAlign:    "center"
+  background: "#020617",
+  padding: "18px",
+  borderRadius: "12px",
+  textAlign: "center",
+  border: "1px solid #1e293b"
+};
+
+const statLabel = {
+  marginBottom: "8px",
+  color: "#64748b",
+  fontSize: "12px",
+  textTransform: "uppercase",
+  letterSpacing: "0.1em"
+};
+
+const statValue = {
+  fontWeight: "bold",
+  fontSize: "24px",
+  margin: 0,
+  color: "#f1f5f9"
 };
 
 const btnBack = {
-  marginBottom: "20px",
-  background:   "#334155",
-  color:        "white",
-  border:       "none",
-  padding:      "8px 16px",
+  marginBottom: "25px",
+  background: "#1e293b",
+  color: "#f8fafc",
+  border: "1px solid #334155",
+  padding: "10px 18px",
   borderRadius: "8px",
-  cursor:       "pointer"
+  cursor: "pointer",
+  fontSize: "14px",
+  transition: "all 0.2s"
 };
 
 export default PlayerDetail;
