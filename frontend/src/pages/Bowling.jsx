@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API = "http://127.0.0.1:5000";
+import api from "../api";
 
 function Bowling() {
-  const [data, setData] = useState([]);
+  const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // =========================
-  // FETCH BOWLING STATS
-  // =========================
   useEffect(() => {
-    axios.get(`${API}/bowling-stats`)
+    api.get("/bowling-stats")
       .then(res => {
         setData(res.data.data || []);
         setLoading(false);
@@ -26,40 +21,36 @@ function Bowling() {
 
   return (
     <div>
-      {/* HEADER */}
       <h1 style={title}>🎯 Bowling Analytics</h1>
 
       {data.length === 0 ? (
-        <p>No bowling data available</p>
+        <p style={{ color: "#94a3b8" }}>No bowling data available. Add performances first.</p>
       ) : (
         <div style={tableContainer}>
-
           <table style={table}>
             <thead>
               <tr style={theadRow}>
-                <th>#</th>
-                <th>Player</th>
-                <th>Wickets</th>
-                <th>Overs</th>
-                <th>Runs</th>
-                <th>Economy</th>
+                <th style={th}>#</th>
+                <th style={th}>Player</th>
+                <th style={th}>Wickets</th>
+                <th style={th}>Overs</th>
+                <th style={th}>Runs</th>
+                <th style={th}>Economy</th>
               </tr>
             </thead>
-
             <tbody>
               {data.map((p, index) => (
                 <tr key={p.name || index} style={row}>
-                  <td>{index + 1}</td>
-                  <td>{p.name}</td>
-                  <td style={highlightWicket}>{p.wickets}</td>
-                  <td>{p.overs}</td>
-                  <td>{p.runs_conceded}</td>
-                  <td style={highlightEco}>{p.economy}</td>
+                  <td style={td}>{index + 1}</td>
+                  <td style={td}>{p.name}</td>
+                  <td style={{ ...td, ...highlightWicket }}>{p.wickets}</td>
+                  <td style={td}>{p.overs}</td>
+                  <td style={td}>{p.runs_conceded}</td>
+                  <td style={{ ...td, ...highlightEco }}>{p.economy}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-
         </div>
       )}
     </div>
@@ -67,45 +58,56 @@ function Bowling() {
 }
 
 /* ================= STYLES ================= */
-
 const title = {
-  marginBottom: "20px",
-  background: "linear-gradient(90deg, #38bdf8, #22c55e)",
+  marginBottom:         "20px",
+  background:           "linear-gradient(90deg, #38bdf8, #22c55e)",
   WebkitBackgroundClip: "text",
-  color: "transparent",
-  fontWeight: "bold"
+  color:                "transparent",
+  fontWeight:           "bold"
 };
 
 const tableContainer = {
-  background: "linear-gradient(145deg, #1e293b, #020617)",
-  padding: "20px",
+  background:   "linear-gradient(145deg, #1e293b, #020617)",
+  padding:      "20px",
   borderRadius: "16px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.6)"
+  boxShadow:    "0 10px 25px rgba(0,0,0,0.6)"
 };
 
 const table = {
-  width: "100%",
-  borderCollapse: "collapse",
-  color: "white"
+  width:           "100%",
+  borderCollapse:  "collapse",
+  color:           "white"
 };
 
 const theadRow = {
   borderBottom: "2px solid #475569",
-  textAlign: "left"
+  textAlign:    "left"
+};
+
+const th = {
+  padding:      "10px 14px",
+  color:        "#94a3b8",
+  fontSize:     "13px",
+  fontWeight:   "600",
+  letterSpacing:"0.05em"
 };
 
 const row = {
   borderBottom: "1px solid #334155",
-  transition: "0.2s"
+  transition:   "background 0.2s"
+};
+
+const td = {
+  padding: "12px 14px"
 };
 
 const highlightWicket = {
-  color: "#22c55e", // green (good performance)
+  color:      "#22c55e",
   fontWeight: "bold"
 };
 
 const highlightEco = {
-  color: "#38bdf8", // blue highlight
+  color:      "#38bdf8",
   fontWeight: "bold"
 };
 

@@ -98,7 +98,7 @@ body {
   margin-bottom: 25px;
 }
 
-/* 🔴 LIVE BADGE */
+/* LIVE BADGE */
 .live-badge {
   background: red;
   padding: 6px 12px;
@@ -109,8 +109,8 @@ body {
 }
 
 @keyframes pulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.5; }
+  0%   { opacity: 1; }
+  50%  { opacity: 0.5; }
   100% { opacity: 1; }
 }
 
@@ -133,6 +133,16 @@ body {
 
 .highlight-card:hover {
   transform: translateY(-4px);
+}
+
+/* ================= CARD ================= */
+
+.card {
+  background: linear-gradient(145deg, #1e293b, #020617);
+  padding: 20px;
+  border-radius: 16px;
+  margin-bottom: 20px;
+  box-shadow: var(--shadow);
 }
 
 /* ================= MATCH CARD ================= */
@@ -167,7 +177,7 @@ body {
   gap: 10px;
 }
 
-/* ================= PLAYER ================= */
+/* ================= PLAYER ROW ================= */
 
 .player-row {
   display: flex;
@@ -219,13 +229,10 @@ h1, h2 {
 h1 {
   font-size: 32px;
   margin-bottom: 20px;
-
   background: linear-gradient(90deg, #38bdf8, #22c55e);
   background-clip: text;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-
-  /* fallback */
   color: transparent;
 }
 
@@ -300,7 +307,6 @@ input:focus, select:focus {
 /* ================= RESPONSIVE ================= */
 
 @media (max-width: 768px) {
-
   #root {
     flex-direction: column;
   }

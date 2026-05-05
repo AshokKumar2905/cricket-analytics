@@ -5,7 +5,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json"
   },
-  timeout: 10000 // ⏱ prevent hanging requests
+  timeout: 10000
 });
 
 /* =========================
@@ -13,8 +13,6 @@ const api = axios.create({
 ========================= */
 api.interceptors.request.use(
   (config) => {
-    // You can add auth token here later
-    // config.headers.Authorization = "Bearer token";
     return config;
   },
   (error) => Promise.reject(error)
@@ -28,7 +26,6 @@ api.interceptors.response.use(
   (error) => {
     console.error("API Error:", error?.response || error.message);
 
-    // Optional: show alert
     if (error.response?.status === 500) {
       alert("Server Error ❌");
     }

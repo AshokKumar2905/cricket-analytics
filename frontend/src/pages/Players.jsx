@@ -1,46 +1,46 @@
 import { useEffect, useState } from "react";
-import axios from "axios";
-
-const API = "http://127.0.0.1:5000";
+import { useNavigate } from "react-router-dom";
+import api from "../api";
 
 function Players() {
-  const [players, setPlayers] = useState([]);
-  const [name, setName] = useState("");
-  const [role, setRole] = useState("");
-
+  const [search, setSearch] = useState("");
+  const [filterRole, setFilterRole] = useState("");
+  const [players, setPlayers]   = useState([]);
+  const [name, setName]         = useState("");
+  const [role, setRole]         = useState("");
   const [editingId, setEditingId] = useState(null);
   const [editName, setEditName] = useState("");
   const [editRole, setEditRole] = useState("");
+  const navigate                = useNavigate();
 
   // =========================
   // LOAD PLAYERS
   // =========================
   const fetchPlayers = async () => {
-    try {
-      const res = await axios.get(`${API}/players`);
-      setPlayers(res.data.data || []);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
-  };
+  try {
+    let url = "/players?";
+    if (search) url += `search=${search}&`;
+    if (filterRole) url += `role=${filterRole}`;
+
+    const res = await api.get(url);
+    setPlayers(res.data.data || []);
+  } catch (err) {
+    console.error("Fetch error:", err);
+  }
+};
 
   useEffect(() => {
-    fetchPlayers();
-  }, []);
+  fetchPlayers();
+}, [search, filterRole]);
 
   // =========================
   // ADD PLAYER
   // =========================
   const addPlayer = async () => {
-    if (!name || !role) {
-      alert("Enter name and role");
-      return;
-    }
-
+    if (!name || !role) { alert("Enter name and role"); return; }
     try {
-      const res = await axios.post(`${API}/players`, { name, role });
-      setPlayers((prev) => [...prev, res.data.data]);
-
+      const res = await api.post("/players", { name, role });
+      setPlayers(prev => [...prev, res.data.data]);
       setName("");
       setRole("");
     } catch (err) {
@@ -53,15 +53,15 @@ function Players() {
   // =========================
   const deletePlayer = async (id) => {
     try {
-      await axios.delete(`${API}/players/${id}`);
-      setPlayers((prev) => prev.filter((p) => p.id !== id));
+      await api.delete(`/players/${id}`);
+      setPlayers(prev => prev.filter(p => p.id !== id));
     } catch (err) {
       console.error("Delete error:", err);
     }
   };
 
   // =========================
-  // START EDIT
+  // EDIT
   // =========================
   const startEdit = (p) => {
     setEditingId(p.id);
@@ -69,20 +69,10 @@ function Players() {
     setEditRole(p.role);
   };
 
-  // =========================
-  // SAVE EDIT
-  // =========================
   const saveEdit = async (id) => {
     try {
-      const res = await axios.put(`${API}/players/${id}`, {
-        name: editName,
-        role: editRole,
-      });
-
-      setPlayers((prev) =>
-        prev.map((p) => (p.id === id ? res.data.data : p))
-      );
-
+      const res = await api.put(`/players/${id}`, { name: editName, role: editRole });
+      setPlayers(prev => prev.map(p => (p.id === id ? res.data.data : p)));
       setEditingId(null);
     } catch (err) {
       console.error("Update error:", err);
@@ -91,86 +81,91 @@ function Players() {
 
   return (
     <div>
-      {/* HEADER */}
       <h1 style={title}>👤 Players</h1>
 
-      {/* ADD PLAYER */}
+      {/* ADD FORM */}
       <div style={form}>
         <input
           placeholder="Player Name"
           value={name}
-          onChange={(e) => setName(e.target.value)}
-          style={input}
+          onChange={e => setName(e.target.value)}
+          style={inputStyle}
         />
-
-        <select
-          value={role}
-          onChange={(e) => setRole(e.target.value)}
-          style={input}
-        >
+        <select value={role} onChange={e => setRole(e.target.value)} style={inputStyle}>
           <option value="">Select Role</option>
           <option>Batters</option>
           <option>Bowler</option>
           <option>All Rounder</option>
           <option>Wicket Keeper</option>
         </select>
-
-        <button onClick={addPlayer} style={btnAdd}>
-          + Add
-        </button>
+        <button onClick={addPlayer} style={btnAdd}>+ Add</button>
       </div>
+
+      {/* SEARCH + FILTER */}
+<div style={{ display: "flex", gap: "10px", marginBottom: "20px", flexWrap: "wrap" }}>
+  <input
+    placeholder="🔍 Search player..."
+    value={search}
+    onChange={(e) => setSearch(e.target.value)}
+    style={inputStyle}
+  />
+
+  <select
+    value={filterRole}
+    onChange={(e) => setFilterRole(e.target.value)}
+    style={inputStyle}
+  >
+    <option value="">All Roles</option>
+    <option>Batters</option>
+    <option>Bowler</option>
+    <option>All Rounder</option>
+    <option>Wicket Keeper</option>
+  </select>
+</div>
 
       {/* PLAYER CARDS */}
       <div style={grid}>
         {players.map((p, index) => (
           <div key={p.id || index} style={card}>
-
             {editingId === p.id ? (
               <>
                 <input
                   value={editName}
-                  onChange={(e) => setEditName(e.target.value)}
-                  style={input}
+                  onChange={e => setEditName(e.target.value)}
+                  style={inputStyle}
                 />
-
                 <select
                   value={editRole}
-                  onChange={(e) => setEditRole(e.target.value)}
-                  style={input}
+                  onChange={e => setEditRole(e.target.value)}
+                  style={{ ...inputStyle, marginTop: 8 }}
                 >
                   <option>Batters</option>
                   <option>Bowler</option>
                   <option>All Rounder</option>
                   <option>Wicket Keeper</option>
                 </select>
-
                 <div style={btnGroup}>
-                  <button onClick={() => saveEdit(p.id)} style={btnPrimary}>
-                    Save
-                  </button>
-
-                  <button onClick={() => setEditingId(null)} style={btnSecondary}>
-                    Cancel
-                  </button>
+                  <button onClick={() => saveEdit(p.id)} style={btnPrimary}>Save</button>
+                  <button onClick={() => setEditingId(null)} style={btnSecondary}>Cancel</button>
                 </div>
               </>
             ) : (
               <>
-                <h3 style={{ marginBottom: "8px" }}>{p.name}</h3>
+                {/* Clicking name navigates to detail page */}
+                <h3
+                  style={{ marginBottom: "8px", cursor: "pointer", color: "#38bdf8" }}
+                  onClick={() => navigate(`/players/${p.id}`)}
+                >
+                  {p.name}
+                </h3>
                 <p style={roleStyle}>{p.role}</p>
-
                 <div style={btnGroup}>
-                  <button onClick={() => startEdit(p)} style={btnPrimary}>
-                    Edit
-                  </button>
-
-                  <button onClick={() => deletePlayer(p.id)} style={btnDanger}>
-                    Delete
-                  </button>
+                  <button onClick={() => startEdit(p)} style={btnPrimary}>Edit</button>
+                  <button onClick={() => deletePlayer(p.id)} style={btnDanger}>Delete</button>
+                  <button onClick={() => navigate(`/players/${p.id}`)} style={btnView}>View Stats</button>
                 </div>
               </>
             )}
-
           </div>
         ))}
       </div>
@@ -179,88 +174,98 @@ function Players() {
 }
 
 /* ================= STYLES ================= */
-
 const title = {
-  marginBottom: "20px",
-  background: "linear-gradient(90deg, #38bdf8, #22c55e)",
-  WebkitBackgroundClip: "text",
-  color: "transparent",
-  fontWeight: "bold"
+  marginBottom:        "20px",
+  background:          "linear-gradient(90deg, #38bdf8, #22c55e)",
+  WebkitBackgroundClip:"text",
+  color:               "transparent",
+  fontWeight:          "bold"
 };
 
 const form = {
-  display: "flex",
-  gap: "10px",
+  display:      "flex",
+  gap:          "10px",
   marginBottom: "20px",
-  flexWrap: "wrap"
+  flexWrap:     "wrap"
 };
 
 const grid = {
-  display: "grid",
+  display:             "grid",
   gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))",
-  gap: "20px"
+  gap:                 "20px"
 };
 
 const card = {
-  background: "linear-gradient(145deg, #1e293b, #020617)",
-  padding: "20px",
+  background:   "linear-gradient(145deg, #1e293b, #020617)",
+  padding:      "20px",
   borderRadius: "16px",
-  boxShadow: "0 10px 25px rgba(0,0,0,0.5)"
+  boxShadow:    "0 10px 25px rgba(0,0,0,0.5)"
 };
 
-const input = {
-  padding: "10px",
+const inputStyle = {
+  padding:      "10px",
   borderRadius: "8px",
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "white"
+  border:       "1px solid #334155",
+  background:   "#0f172a",
+  color:        "white",
+  width:        "100%"
 };
 
 const roleStyle = {
-  color: "#94a3b8",
+  color:        "#94a3b8",
   marginBottom: "10px"
 };
 
 const btnGroup = {
-  display: "flex",
-  gap: "8px",
-  marginTop: "10px"
+  display:   "flex",
+  gap:       "8px",
+  marginTop: "10px",
+  flexWrap:  "wrap"
 };
 
 const btnAdd = {
-  background: "#22c55e",
-  color: "white",
-  border: "none",
-  padding: "10px 14px",
+  background:   "#22c55e",
+  color:        "white",
+  border:       "none",
+  padding:      "10px 14px",
   borderRadius: "8px",
-  cursor: "pointer"
+  cursor:       "pointer"
 };
 
 const btnPrimary = {
-  background: "#3b82f6",
-  color: "white",
-  border: "none",
-  padding: "6px 12px",
+  background:   "#3b82f6",
+  color:        "white",
+  border:       "none",
+  padding:      "6px 12px",
   borderRadius: "6px",
-  cursor: "pointer"
+  cursor:       "pointer"
 };
 
 const btnDanger = {
-  background: "#ef4444",
-  color: "white",
-  border: "none",
-  padding: "6px 12px",
+  background:   "#ef4444",
+  color:        "white",
+  border:       "none",
+  padding:      "6px 12px",
   borderRadius: "6px",
-  cursor: "pointer"
+  cursor:       "pointer"
 };
 
 const btnSecondary = {
-  background: "#64748b",
-  color: "white",
-  border: "none",
-  padding: "6px 12px",
+  background:   "#64748b",
+  color:        "white",
+  border:       "none",
+  padding:      "6px 12px",
   borderRadius: "6px",
-  cursor: "pointer"
+  cursor:       "pointer"
+};
+
+const btnView = {
+  background:   "#a855f7",
+  color:        "white",
+  border:       "none",
+  padding:      "6px 12px",
+  borderRadius: "6px",
+  cursor:       "pointer"
 };
 
 export default Players;
