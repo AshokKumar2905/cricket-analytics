@@ -1,16 +1,16 @@
 import { useState } from "react";
-import { useAuth } from "../context/AuthContext"; //
-import { useToast } from "../context/ToastContext"; //
-import { useNavigate } from "react-router-dom"; //
+import { useAuth } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
+import { useNavigate } from "react-router-dom";
 
 export default function Login() {
-  const { login } = useAuth(); //[cite: 1]
-  const { addToast } = useToast(); //[cite: 1]
-  const navigate = useNavigate(); //[cite: 1]
+  const { login } = useAuth(); // Logic preserved
+  const { addToast } = useToast(); // Logic preserved
+  const navigate = useNavigate(); // Logic preserved
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
     if (!username || !password) { 
@@ -21,32 +21,32 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // Logic maintained from your provided source[cite: 1]
+      // Logic maintained from provided source
       await login(username, password);
-      addToast("Welcome back! 🏏");
+      addToast("Authentication Successful. Welcome back!");
       navigate("/dashboard"); 
 
     } catch {
-      addToast("Invalid credentials", "error");
+      addToast("Invalid credentials provided", "error");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={page}>
-      <div style={box} className="login-box-shadow">
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ fontSize: 56 }}>🏏</div>
-          <h1 style={titleStyle}>Cricket Pro</h1>
-          <p style={{ color: "#94a3b8", margin: 0, fontSize: "14px" }}>Analytics Dashboard</p>
+    <div style={iccLoginPage}>
+      <div style={iccLoginBox} className="page-fade-in login-box-shadow">
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <div style={iccBrandLogo}>🏏</div>
+          <h1 style={iccLoginTitle}>CRIC PRO</h1>
+          <p style={iccLoginSubtitle}>Official Intelligence Gateway</p>
         </div>
 
         <div style={fieldWrap}>
-          <label style={label}>Username</label>
+          <label style={iccLabel}>OPERATOR IDENTITY</label>
           <input
-            style={input}
-            placeholder="admin"
+            style={iccInput}
+            placeholder="Username"
             value={username}
             onChange={e => setUsername(e.target.value)}
             onKeyDown={e => e.key === "Enter" && handleLogin()}
@@ -54,9 +54,9 @@ export default function Login() {
         </div>
 
         <div style={fieldWrap}>
-          <label style={label}>Password</label>
+          <label style={iccLabel}>ACCESS KEY</label>
           <input
-            style={input}
+            style={iccInput}
             type="password"
             placeholder="••••••••"
             value={password}
@@ -68,91 +68,115 @@ export default function Login() {
         <button 
           onClick={handleLogin} 
           disabled={loading} 
-          style={{ ...btn, opacity: loading ? 0.7 : 1 }}
-          className="btn-login-hover"
+          style={{ ...iccBtn, opacity: loading ? 0.7 : 1 }}
         >
-          {loading ? "Signing in…" : "Sign In →"}
+          {loading ? "AUTHENTICATING..." : "ESTABLISH CONNECTION →"}
         </button>
 
-        <p style={hintText}>
-          Default Access: <span style={{ color: "#38bdf8" }}>admin / cricket123</span>
-        </p>
+        <div style={iccLoginFooter}>
+          <p style={iccHintText}>
+            RESTRICTED ACCESS: SECURE ENVIRONMENT
+          </p>
+          <p style={{ ...iccHintText, color: "#38bdf8", marginTop: "6px" }}>
+            Default: admin / cricket123
+          </p>
+        </div>
       </div>
     </div>
   );
 }
 
-/* ================= STYLES =================[cite: 1] */
-const page = {
+/* ================= ICC LOGIN STYLES ================= */
+const iccLoginPage = {
   minHeight: "100vh", 
   display: "flex", 
   alignItems: "center",
   justifyContent: "center",
-  background: "#020617" // Matches global dark theme[cite: 1]
+  background: "#06083b", // ICC Navy
+  width: "100%"
 };
 
-const box = {
-  background: "#0f172a", // Matches sidebar/header background[cite: 1]
-  border: "1px solid #1e293b",
-  borderRadius: 20,
-  padding: "40px 36px",
-  width: 360,
-  boxShadow: "0 24px 60px rgba(0,0,0,0.8)"
-};
-
-const titleStyle = {
-  background: "linear-gradient(90deg, #38bdf8, #22c55e)", // CricViz Accent colors[cite: 1]
-  WebkitBackgroundClip: "text",
-  color: "transparent",
-  fontWeight: 800,
-  fontSize: 32,
-  margin: "8px 0 4px",
-  letterSpacing: "-0.02em"
-};
-
-const fieldWrap = { marginBottom: 20 };
-
-const label = {
-  color: "#64748b",
-  fontSize: 12,
-  fontWeight: "600",
-  display: "block",
-  marginBottom: 8,
-  textTransform: "uppercase",
-  letterSpacing: "0.05em"
-};
-
-const input = {
+const iccLoginBox = {
+  background: "#00195a", // ICC Secondary Blue
+  border: "1px solid rgba(255, 255, 255, 0.1)",
+  borderRadius: "4px", // Sharp ICC corners
+  padding: "60px 45px",
   width: "100%",
-  padding: "12px 14px",
-  borderRadius: 10,
+  maxWidth: 420,
+  boxShadow: "0 30px 60px rgba(0, 0, 0, 0.6)",
+  textAlign: "center"
+};
+
+const iccBrandLogo = {
+  fontSize: 64,
+  marginBottom: 15,
+};
+
+const iccLoginTitle = {
+  color: "#ffffff",
+  fontWeight: 900,
+  fontSize: "32px",
+  margin: "0 0 5px",
+  letterSpacing: "2px"
+};
+
+const iccLoginSubtitle = { 
+  color: "#94a3b8", 
+  margin: 0, 
+  fontSize: "12px", 
+  fontWeight: "800",
+  letterSpacing: "1px",
+  textTransform: "uppercase"
+};
+
+const fieldWrap = { marginBottom: 25, textAlign: "left" };
+
+const iccLabel = {
+  color: "#94a3b8",
+  fontSize: "10px",
+  fontWeight: "900",
+  display: "block",
+  marginBottom: 10,
+  letterSpacing: "1.5px"
+};
+
+const iccInput = {
+  width: "100%",
+  padding: "16px",
+  borderRadius: "4px",
   border: "1px solid #1e293b",
-  background: "#020617",
-  color: "white",
-  fontSize: 15,
+  background: "#06083b",
+  color: "#ffffff",
+  fontSize: "14px",
   boxSizing: "border-box",
   outline: "none",
-  transition: "border-color 0.2s"
+  fontWeight: "600"
 };
 
-const btn = {
+const iccBtn = {
   width: "100%",
-  padding: "14px",
-  borderRadius: 10,
-  background: "linear-gradient(90deg, #22c55e, #38bdf8)",
-  color: "white",
-  fontWeight: 700,
-  fontSize: 16,
+  padding: "18px",
+  borderRadius: "4px",
+  background: "#e91052", // ICC Magenta
+  color: "#ffffff",
+  fontWeight: "900",
+  fontSize: "14px",
   border: "none",
   cursor: "pointer",
   marginTop: 10,
-  transition: "transform 0.1s"
+  letterSpacing: "1px",
+  transition: "filter 0.2s"
 };
 
-const hintText = {
-  color: "#475569", 
-  fontSize: 12, 
-  textAlign: "center", 
-  marginTop: 24,
-  fontFamily: "monospace"
+const iccLoginFooter = {
+  marginTop: 35,
+};
+
+const iccHintText = {
+  color: "#64748b", 
+  fontSize: "10px", 
+  margin: 0,
+  textTransform: "uppercase",
+  fontWeight: "800",
+  letterSpacing: "1px"
 };

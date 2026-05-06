@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import api from "../api";
-import { CardSkeleton } from "../components/Skeleton"; // Using your existing skeleton component
+import { CardSkeleton } from "../components/Skeleton";
 
 function Bowling() {
   const [data, setData]       = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Logic: Fetch bowling data preserved
   useEffect(() => {
-    // API endpoint remains as defined in your logic
     api.get("/bowling-stats")
       .then(res => {
         setData(res.data.data || []);
@@ -20,130 +20,104 @@ function Bowling() {
   }, []);
 
   if (loading) return (
-    <div style={{ padding: "20px" }}>
-      <h1 style={title}>🎯 Bowling Analytics</h1>
-      <CardSkeleton /> 
+    <div style={loadingState}>
+      <h2 className="glow-text">SYNCING BOWLING INTELLIGENCE...</h2>
+      <CardSkeleton count={5} /> 
     </div>
   );
 
   return (
-    <div className="page-fade-in">
-      <div style={headerSection}>
-        <h1 style={title}>🎯 Bowling Analytics</h1>
-        <p style={subtitle}>Detailed bowler impact and economy metrics</p>
+    <div className="page-fade-in" style={iccPage}>
+      {/* 1. ICC SPOTLIGHT HEADER */}
+      <div style={iccHeaderSection}>
+        <div style={iccHeaderContent}>
+          <span style={iccTag}>OFFICIAL RANKINGS</span>
+          <h1 style={iccTitle}>Bowling Analytics</h1>
+          <p style={iccSubtitle}>
+            Strategic insights into athlete impact, delivery control, and tournament economy metrics.
+          </p>
+        </div>
       </div>
 
-      {data.length === 0 ? (
-        <div style={emptyState}>
-          <p>No bowling data available. Add match performances to see insights.</p>
-        </div>
-      ) : (
-        <div className="card" style={tableContainer}>
-          <table style={table}>
-            <thead>
-              <tr style={theadRow}>
-                <th style={th}>RANK</th>
-                <th style={th}>PLAYER</th>
-                <th style={th}>WICKETS</th>
-                <th style={th}>OVERS</th>
-                <th style={th}>RUNS</th>
-                <th style={th}>ECONOMY</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.map((p, index) => (
-                <tr key={p.name || index} style={row} className="table-row-hover">
-                  <td style={td}>{index + 1}</td>
-                  <td style={td}><strong>{p.name}</strong></td>
-                  <td style={{ ...td, ...highlightWicket }}>{p.wickets}</td>
-                  <td style={td}>{p.overs}</td>
-                  <td style={td}>{p.runs_conceded}</td>
-                  <td style={{ ...td, ...highlightEco }}>{p.economy}</td>
+      {/* 2. ANALYTICS TABLE CONTAINER */}
+      <div style={contentPadding}>
+        {data.length === 0 ? (
+          <div style={emptyState}>
+            <span style={{fontSize: '64px', display: 'block', marginBottom: '20px'}}>🏏</span>
+            <p>No analytical data available for current session.</p>
+          </div>
+        ) : (
+          <div className="icc-table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th style={thCenter}>RANK</th>
+                  <th>ATHLETE</th>
+                  <th style={thCenter}>WICKETS</th>
+                  <th style={thCenter}>OVERS</th>
+                  <th style={thCenter}>RUNS</th>
+                  <th style={thCenter}>ECONOMY</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+              <tbody>
+                {data.map((p, index) => (
+                  <tr key={p.name || index}>
+                    <td style={tdCenter}>
+                      <div style={index === 0 ? goldBadge : index === 1 ? silverBadge : index === 2 ? bronzeBadge : rankBadge}>
+                        {index + 1}
+                      </div>
+                    </td>
+                    <td>
+                      <div style={playerName}>{p.name}</div>
+                    </td>
+                    <td style={tdWicket}>{p.wickets}</td>
+                    <td style={tdCenter}>{p.overs}</td>
+                    <td style={tdCenter}>{p.runs_conceded}</td>
+                    <td style={tdEconomy}>{p.economy}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-/* ================= STYLES ================= */
+/* ================= ICC STYLES ================= */
+const iccPage = { background: "#06083b", minHeight: "100vh" };
+const loadingState = { padding: "100px 5%", textAlign: "center" };
 
-const headerSection = {
-  marginBottom: "30px"
+const iccHeaderSection = { 
+  background: "linear-gradient(rgba(0,0,0,0.5), #06083b), url('https://images.unsplash.com/photo-1531415074968-036ba1b575da?q=80&w=2067') center/cover", 
+  padding: "100px 5% 60px" 
 };
 
-const title = {
-  margin: 0,
-  background: "linear-gradient(90deg, #38bdf8, #22c55e)",
-  WebkitBackgroundClip: "text",
-  color: "transparent",
-  fontWeight: "bold",
-  fontSize: "28px"
-};
+const iccHeaderContent = { maxWidth: "1200px", margin: "0 auto" };
+const iccTag = { color: "#e91052", fontWeight: "900", letterSpacing: "2px", fontSize: "12px" };
+const iccTitle = { color: "white", fontSize: "48px", fontWeight: "900", margin: "10px 0" };
+const iccSubtitle = { color: "#94a3b8", fontSize: "16px", maxWidth: "600px" };
 
-const subtitle = {
-  color: "#94a3b8",
-  marginTop: "8px",
-  fontSize: "14px"
-};
+const contentPadding = { maxWidth: "1400px", margin: "0 auto" };
 
-const emptyState = {
-  padding: "40px",
-  textAlign: "center",
-  color: "#64748b",
-  background: "#0f172a",
-  borderRadius: "12px",
-  border: "1px dashed #1e293b"
-};
+const thCenter = { textAlign: 'center' };
+const tdCenter = { textAlign: 'center', color: "#cbd5e1" };
 
-const tableContainer = {
-  background: "#0f172a",
-  padding: "24px",
-  borderRadius: "16px",
-  border: "1px solid #1e293b",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.4)"
-};
+const playerName = { fontWeight: "800", color: "white", fontSize: "15px", letterSpacing: '0.5px' };
+const tdWicket = { textAlign: 'center', color: "#22c55e", fontWeight: "900", fontSize: "18px" };
+const tdEconomy = { textAlign: 'center', color: "#38bdf8", fontWeight: "900", fontSize: "18px" };
 
-const table = {
-  width: "100%",
-  borderCollapse: "collapse",
-  color: "white"
+const badgeBase = { 
+  width: "32px", height: "32px", borderRadius: "4px", 
+  display: "flex", alignItems: "center", justifyContent: "center", 
+  fontSize: "12px", fontWeight: "900", margin: "0 auto" 
 };
+const rankBadge = { ...badgeBase, background: "rgba(255,255,255,0.05)", color: "#94a3b8" };
+const goldBadge = { ...badgeBase, background: "#e91052", color: "white" }; // Primary Magenta for Rank 1
+const silverBadge = { ...badgeBase, background: "#00195a", color: "white", border: "1px solid #38bdf8" };
+const bronzeBadge = { ...badgeBase, background: "#00195a", color: "#38bdf8", border: "1px solid rgba(56, 189, 248, 0.3)" };
 
-const theadRow = {
-  borderBottom: "1px solid #1e293b",
-  textAlign: "left"
-};
-
-const th = {
-  padding: "12px 16px",
-  color: "#64748b",
-  fontSize: "12px",
-  fontWeight: "700",
-  letterSpacing: "0.1em",
-  textTransform: "uppercase"
-};
-
-const row = {
-  borderBottom: "1px solid #1e293b",
-  transition: "all 0.2s"
-};
-
-const td = {
-  padding: "16px"
-};
-
-const highlightWicket = {
-  color: "#22c55e", // Green for positive performance (wickets)
-  fontWeight: "bold"
-};
-
-const highlightEco = {
-  color: "#38bdf8", // Blue for economy metrics[cite: 1]
-  fontWeight: "bold"
-};
+const emptyState = { padding: "100px 5%", textAlign: "center", color: "#64748b" };
 
 export default Bowling;

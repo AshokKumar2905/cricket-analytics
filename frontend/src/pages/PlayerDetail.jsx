@@ -9,7 +9,7 @@ function PlayerDetail() {
   const [stats, setStats]       = useState(null);
   const [loading, setLoading]   = useState(true);
 
-  // Fetch Player and Stats concurrently using your existing api.js logic
+  // Logic: Fetch Player and Stats concurrently preserved
   useEffect(() => {
     setLoading(true);
     Promise.all([
@@ -22,7 +22,7 @@ function PlayerDetail() {
 
         const foundPlayer = players.find(p => String(p.id) === String(id)) || null;
 
-        // BUG FIX: Strictly match by player_id
+        // Logic preserved: Strictly match by player_id
         const foundStats  = allStats.find(s => String(s.player_id) === String(id)) || {};
 
         setPlayer(foundPlayer);
@@ -35,49 +35,72 @@ function PlayerDetail() {
   }, [id]);
 
   if (loading) return (
-    <div style={{ padding: "40px", textAlign: "center", color: "#38bdf8" }}>
-      <h2>Loading Player Profile...</h2>
+    <div style={loadingState}>
+      <h2 className="glow-text">SYNCING ATHLETE DATA...</h2>
     </div>
   );
 
   if (!player) return (
-    <div style={{ padding: "40px", textAlign: "center" }}>
-      <h2 style={{ color: "#ef4444" }}>Player not found.</h2>
-      <button onClick={() => navigate("/players")} style={btnBack}>← Back to Players</button>
+    <div style={errorState}>
+      <h2 style={{ color: "#e91052", fontSize: '32px' }}>ATHLETE NOT FOUND</h2>
+      <p style={{ color: '#94a3b8', margin: '20px 0 30px' }}>Requested identifier does not exist in the tournament registry.</p>
+      <button onClick={() => navigate("/players")} style={iccBackBtn}>RETURN TO ROSTER</button>
     </div>
   );
 
   return (
-    <div className="page-fade-in">
-      {/* NAVIGATION */}
-      <button onClick={() => navigate("/players")} style={btnBack}>← Back to Players</button>
-
-      {/* PLAYER IDENTITY SECTION */}
-      <div style={headerSection}>
-        <h1 style={titleStyle}>{player.name}</h1>
-        <p style={roleStyle}>{player.role} • ID: {player.id}</p>
-      </div>
-
-      {/* STATS CONTAINERS */}
-      <div style={gridContainer}>
-        {/* BATTING CARD */}
-        <div style={card}>
-          <h3 style={cardTitle}>🏏 Batting Analytics</h3>
-          <div style={statsGrid}>
-            <Stat label="Runs"         value={stats.runs        ?? 0} />
-            <Stat label="Balls Faced"  value={stats.balls       ?? 0} />
-            <Stat label="Strike Rate"  value={stats.strike_rate ?? "0.00"} />
+    <div className="page-fade-in" style={{ background: "#06083b", minHeight: "100vh" }}>
+      {/* 1. ICC SPOTLIGHT HEADER */}
+      <div style={iccHeroHeader}>
+        <div style={iccHeroOverlay}>
+          <div style={iccHeroContent}>
+            <button onClick={() => navigate("/players")} style={iccBackBtn}>← ALL PLAYERS</button>
+            <div style={iccProfileRow}>
+              <div style={iccAvatarContainer}>
+                {player.photo ? (
+                  <img 
+                    src={`http://127.0.0.1:5000${player.photo}`} 
+                    alt={player.name}
+                    style={iccProfileImage} 
+                  />
+                ) : (
+                  <div style={iccProfileFallback}>{player.name?.[0]}</div>
+                )}
+              </div>
+              <div style={iccIdentity}>
+                <span style={iccTag}>OFFICIAL PLAYER PROFILE</span>
+                <h1 style={iccName}>{player.name}</h1>
+                <div style={iccBadgeRow}>
+                   <span style={iccRoleBadge}>{player.role}</span>
+                   <span style={iccIdBadge}>UID: {player.id}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
+      </div>
 
-        {/* BOWLING CARD */}
-        <div style={card}>
-          <h3 style={cardTitle}>🎯 Bowling Analytics</h3>
-          <div style={statsGrid}>
-            <Stat label="Wickets"       value={stats.wickets       ?? 0}     />
-            <Stat label="Overs"         value={stats.overs         ?? "0.0"} />
-            <Stat label="Runs Conceded" value={stats.runs_conceded ?? 0}     />
-            <Stat label="Economy"       value={stats.economy       ?? "0.00"} />
+      {/* 2. ANALYTICS DATA STRIP */}
+      <div style={iccDataContainer}>
+        <div style={iccStatsGrid}>
+          {/* Batting Intelligence Panel[cite: 1] */}
+          <div className="card" style={iccStatCard}>
+            <h3 style={iccCardLabel}>🏏 BATTING INTELLIGENCE</h3>
+            <div style={iccStatRow}>
+              <Stat label="Total Runs" value={stats.runs ?? 0} accent="#38bdf8" />
+              <Stat label="Deliveries" value={stats.balls ?? 0} />
+              <Stat label="Strike Rate" value={stats.strike_rate ?? "0.00"} accent="#22c55e" />
+            </div>
+          </div>
+
+          {/* Bowling Intelligence Panel[cite: 1] */}
+          <div className="card" style={iccStatCard}>
+            <h3 style={iccCardLabel}>🎯 BOWLING INTELLIGENCE</h3>
+            <div style={iccStatRow}>
+              <Stat label="Wickets" value={stats.wickets ?? 0} accent="#e91052" />
+              <Stat label="Overs" value={stats.overs ?? "0.0"} />
+              <Stat label="Economy" value={stats.economy ?? "0.00"} accent="#f59e0b" />
+            </div>
           </div>
         </div>
       </div>
@@ -85,101 +108,58 @@ function PlayerDetail() {
   );
 }
 
-/* ================= HELPER COMPONENTS ================= */
-function Stat({ label, value }) {
+/* ================= ICC HELPER COMPONENTS[cite: 1] ================= */
+function Stat({ label, value, accent = "#f8fafc" }) {
   return (
-    <div style={statBox}>
-      <h4 style={statLabel}>{label}</h4>
-      <p style={statValue}>{value}</p>
+    <div style={iccStatBox}>
+      <p style={iccStatLabel}>{label}</p>
+      <p style={{ ...iccStatValue, color: accent }}>{value}</p>
     </div>
   );
 }
 
-/* ================= STYLES ================= */
-const headerSection = {
-  marginBottom: "30px",
-  borderBottom: "1px solid #1e293b",
-  paddingBottom: "15px"
+/* ================= ICC STYLES[cite: 1] ================= */
+const loadingState = { height: '80vh', display: 'flex', justifyContent: 'center', alignItems: 'center' };
+const errorState = { padding: "100px 5%", textAlign: "center" };
+
+const iccHeroHeader = {
+  height: "500px",
+  background: "linear-gradient(rgba(0,0,0,0.3), #06083b), url('https://images.unsplash.com/photo-1540747913346-19e32dc3e97e?q=80&w=2000') center/cover",
+  position: "relative"
 };
 
-const titleStyle = {
-  margin: "0 0 5px 0",
-  background: "linear-gradient(90deg, #38bdf8, #22c55e)",
-  WebkitBackgroundClip: "text",
-  WebkitTextFillColor: "transparent",
-  fontWeight: "bold",
-  fontSize: "36px"
-};
-
-const roleStyle = {
-  margin: 0,
-  color: "#94a3b8",
-  fontSize: "16px",
-  letterSpacing: "0.05em",
-  textTransform: "uppercase"
-};
-
-const gridContainer = {
+const iccHeroOverlay = {
+  width: "100%",
+  height: "100%",
   display: "flex",
-  flexDirection: "column",
-  gap: "20px"
+  alignItems: "flex-end",
+  padding: "60px 5%"
 };
 
-const card = {
-  background: "#0f172a",
-  padding: "25px",
-  borderRadius: "16px",
-  border: "1px solid #1e293b",
-  boxShadow: "0 4px 20px rgba(0,0,0,0.4)"
-};
+const iccHeroContent = { width: "100%", maxWidth: "1200px", margin: "0 auto" };
 
-const cardTitle = {
-  margin: "0 0 20px 0",
-  fontSize: "18px",
-  color: "#f8fafc",
-  borderLeft: "4px solid #38bdf8",
-  paddingLeft: "12px"
-};
+const iccProfileRow = { display: "flex", alignItems: "center", gap: "40px", marginTop: "30px" };
+const iccAvatarContainer = { width: "180px", height: "180px", border: "6px solid #e91052", overflow: "hidden" };
+const iccProfileImage = { width: "100%", height: "100%", objectFit: "cover" };
+const iccProfileFallback = { width: "100%", height: "100%", background: "#00195a", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "80px", fontWeight: "900", color: "#e91052" };
 
-const statsGrid = {
-  display: "grid",
-  gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-  gap: "15px"
-};
+const iccIdentity = { flex: 1 };
+const iccTag = { color: "#38bdf8", fontWeight: "900", fontSize: "12px", letterSpacing: "2px" };
+const iccName = { fontSize: "64px", fontWeight: "900", color: "white", margin: "10px 0", lineHeight: "1" };
+const iccBadgeRow = { display: "flex", gap: "10px" };
+const iccRoleBadge = { background: "#e91052", color: "white", padding: "6px 15px", fontSize: "12px", fontWeight: "800", textTransform: "uppercase" };
+const iccIdBadge = { background: "rgba(255,255,255,0.1)", color: "#cbd5e1", padding: "6px 15px", fontSize: "12px", fontWeight: "800" };
 
-const statBox = {
-  background: "#020617",
-  padding: "18px",
-  borderRadius: "12px",
-  textAlign: "center",
-  border: "1px solid #1e293b"
-};
+const iccDataContainer = { padding: "40px 5%", maxWidth: "1200px", margin: "0 auto" };
+const iccStatsGrid = { display: "grid", gridTemplateColumns: "1fr", gap: "30px" };
+const iccStatCard = { background: "#00195a", padding: "40px", borderRadius: "0", border: "none" };
+const iccCardLabel = { fontSize: "14px", fontWeight: "900", letterSpacing: "2px", color: "#94a3b8", marginBottom: "30px", borderLeft: "4px solid #e91052", paddingLeft: "15px" };
 
-const statLabel = {
-  marginBottom: "8px",
-  color: "#64748b",
-  fontSize: "12px",
-  textTransform: "uppercase",
-  letterSpacing: "0.1em"
-};
+const iccStatRow = { display: "flex", gap: "40px", flexWrap: "wrap" };
+const iccStatBox = { flex: "1", minWidth: "150px" };
+const iccStatLabel = { fontSize: "11px", color: "#94a3b8", fontWeight: "800", marginBottom: "10px", textTransform: "uppercase" };
+const iccStatValue = { fontSize: "42px", fontWeight: "900", margin: 0, lineHeight: "1" };
 
-const statValue = {
-  fontWeight: "bold",
-  fontSize: "24px",
-  margin: 0,
-  color: "#f1f5f9"
-};
-
-const btnBack = {
-  marginBottom: "25px",
-  background: "#1e293b",
-  color: "#f8fafc",
-  border: "1px solid #334155",
-  padding: "10px 18px",
-  borderRadius: "8px",
-  cursor: "pointer",
-  fontSize: "14px",
-  transition: "all 0.2s"
-};
+const iccBackBtn = { background: "transparent", border: "1px solid rgba(255,255,255,0.3)", color: "white", padding: "8px 15px", fontSize: "12px", fontWeight: "700", cursor: "pointer" };
 
 export default PlayerDetail;

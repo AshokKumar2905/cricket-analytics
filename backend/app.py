@@ -10,6 +10,7 @@ import uuid
 app = Flask(__name__)
 CORS(app)
 
+# Database Configuration[cite: 1]
 client = MongoClient("mongodb://localhost:27017/")
 db = client["cricket_db"]
 
@@ -17,7 +18,7 @@ UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 # ======================
-# HELPERS
+# HELPERS[cite: 1]
 # ======================
 def safe_object_id(id):
     try:
@@ -32,7 +33,7 @@ def error(msg):
     return jsonify({"status": "error", "message": msg}), 400
 
 # ======================
-# AUTH
+# AUTH[cite: 1]
 # ======================
 USERS = {"admin": "cricket123", "user": "pass123"}
 TOKENS = {}
@@ -63,7 +64,7 @@ def verify_token():
     return error("Invalid token"), 401
 
 # ======================
-# PLAYERS
+# PLAYERS[cite: 1]
 # ======================
 @app.route("/players", methods=["GET"])
 def get_players():
@@ -107,8 +108,7 @@ def add_player():
 @app.route("/players/<id>", methods=["PUT"])
 def update_player(id):
     oid = safe_object_id(id)
-    if not oid:
-        return error("Invalid ID")
+    if not oid: return error("Invalid ID")
     data = request.json or {}
     db.players.update_one(
         {"_id": oid},
@@ -121,36 +121,27 @@ def update_player(id):
     )
     player = db.players.find_one({"_id": oid})
     return success({
-        "id":    str(player["_id"]),
-        "name":  player.get("name"),
-        "role":  player.get("role"),
-        "photo": player.get("photo", ""),
-        "team":  player.get("team", "")
+        "id": str(player["_id"]), "name": player.get("name"), 
+        "role": player.get("role"), "photo": player.get("photo", ""), "team": player.get("team", "")
     })
 
 @app.route("/players/<id>", methods=["DELETE"])
 def delete_player(id):
     oid = safe_object_id(id)
-    if not oid:
-        return error("Invalid ID")
+    if not oid: return error("Invalid ID")
     db.players.delete_one({"_id": oid})
     return success({"msg": "Deleted"})
 
-# Photo upload
 @app.route("/players/<id>/photo", methods=["POST"])
 def upload_photo(id):
     oid = safe_object_id(id)
-    if not oid:
-        return error("Invalid ID")
-    if "photo" not in request.files:
-        return error("No file uploaded")
+    if not oid: return error("Invalid ID")
+    if "photo" not in request.files: return error("No file uploaded")
     file = request.files["photo"]
     allowed = {"png", "jpg", "jpeg", "webp", "gif"}
-    if not file.filename or "." not in file.filename:
-        return error("Invalid file")
+    if not file.filename or "." not in file.filename: return error("Invalid file")
     ext = file.filename.rsplit(".", 1)[1].lower()
-    if ext not in allowed:
-        return error("Invalid file type")
+    if ext not in allowed: return error("Invalid file type")
     filename = f"{id}.{ext}"
     file.save(os.path.join(UPLOAD_FOLDER, filename))
     photo_url = f"/uploads/{filename}"
@@ -162,26 +153,34 @@ def serve_upload(filename):
     return send_file(os.path.join(UPLOAD_FOLDER, filename))
 
 # ======================
-# MATCHES  (with date/time/status)
+# MATCHES[cite: 1]
 # ======================
 @app.route("/matches", methods=["GET"])
 def get_matches():
     search = request.args.get("search", "")
-    fmt    = request.args.get("format", "")
-    query  = {}
+    fmt = request.args.get("format", "")
+    query = {}
     if search:
-        query["$or"] = [
-            {"team1": {"$regex": search, "$options": "i"}},
-            {"team2": {"$regex": search, "$options": "i"}}
-        ]
+        query["$or"] = [{"team1": {"$regex": search, "$options": "i"}}, {"team2": {"$regex": search, "$options": "i"}}]
     if fmt:
         query["format"] = fmt
+    
     matches = []
+    # Logic Update: Match center now requires current score totals
     for m in db.matches.find(query):
+        mid = str(m["_id"])
+        perfs = list(db.performances.find({"match_id": mid}))
+        scores = {m.get("team1"): 0, m.get("team2"): 0}
+        for p in perfs:
+            t = p.get("team")
+            if t in scores: scores[t] += p.get("runs", 0)
+
         matches.append({
-            "id":     str(m["_id"]),
+            "id":     mid,
             "team1":  m.get("team1"),
             "team2":  m.get("team2"),
+            "team1_runs": scores.get(m.get("team1"), 0),
+            "team2_runs": scores.get(m.get("team2"), 0),
             "format": m.get("format"),
             "venue":  m.get("venue"),
             "date":   m.get("date", ""),
@@ -193,8 +192,7 @@ def get_matches():
 @app.route("/matches", methods=["POST"])
 def add_match():
     data = request.json or {}
-    if not data.get("team1") or not data.get("team2"):
-        return error("Teams required")
+    if not data.get("team1") or not data.get("team2"): return error("Teams required")
     result = db.matches.insert_one({
         "team1":  data.get("team1"),
         "team2":  data.get("team2"),
@@ -204,49 +202,35 @@ def add_match():
         "time":   data.get("time", ""),
         "status": data.get("status", "scheduled")
     })
-    return success({
-        "id":     str(result.inserted_id),
-        "team1":  data.get("team1"),
-        "team2":  data.get("team2"),
-        "format": data.get("format", "T20"),
-        "venue":  data.get("venue", ""),
-        "date":   data.get("date", ""),
-        "time":   data.get("time", ""),
-        "status": data.get("status", "scheduled")
-    })
+    return success({"id": str(result.inserted_id), **data})
 
 @app.route("/matches/<id>", methods=["PUT"])
 def update_match(id):
     oid = safe_object_id(id)
-    if not oid:
-        return error("Invalid ID")
+    if not oid: return error("Invalid ID")
     data = request.json or {}
-    db.matches.update_one({"_id": oid}, {"$set": {
+    # Enhanced Update: Allow granular status and venue changes for dynamic UI
+    update_data = {
         "team1":  data.get("team1"),
         "team2":  data.get("team2"),
         "format": data.get("format"),
         "venue":  data.get("venue"),
-        "date":   data.get("date", ""),
-        "time":   data.get("time", ""),
+        "date":   data.get("date"),
         "status": data.get("status", "scheduled")
-    }})
+    }
+    db.matches.update_one({"_id": oid}, {"$set": {k: v for k, v in update_data.items() if v is not None}})
     m = db.matches.find_one({"_id": oid})
-    return success({
-        "id": str(m["_id"]), "team1": m.get("team1"), "team2": m.get("team2"),
-        "format": m.get("format"), "venue": m.get("venue"),
-        "date": m.get("date",""), "time": m.get("time",""), "status": m.get("status","scheduled")
-    })
+    return success({"id": str(m["_id"]), "status": m.get("status")})
 
 @app.route("/matches/<id>", methods=["DELETE"])
 def delete_match(id):
     oid = safe_object_id(id)
-    if not oid:
-        return error("Invalid ID")
+    if not oid: return error("Invalid ID")
     db.matches.delete_one({"_id": oid})
     return success({"msg": "Deleted"})
 
 # ======================
-# PERFORMANCE  (GET + POST + PUT + DELETE)
+# PERFORMANCE[cite: 1]
 # ======================
 @app.route("/performance", methods=["GET"])
 def get_performances():
@@ -257,19 +241,12 @@ def get_performances():
         pid = p.get("player_id", "")
         mid = p.get("match_id", "")
         player = players_map.get(pid, {})
-        match  = matches_map.get(mid, {})
+        match = matches_map.get(mid, {})
         perfs.append({
-            "id":            str(p["_id"]),
-            "player_id":     pid,
-            "player_name":   player.get("name", "Unknown"),
-            "match_id":      mid,
-            "match_label":   f"{match.get('team1','?')} vs {match.get('team2','?')}",
-            "team":          p.get("team", ""),
-            "runs":          p.get("runs", 0),
-            "balls":         p.get("balls", 0),
-            "wickets":       p.get("wickets", 0),
-            "runs_conceded": p.get("runs_conceded", 0),
-            "balls_bowled":  p.get("balls_bowled", 0),
+            "id": str(p["_id"]), "player_id": pid, "player_name": player.get("name", "Unknown"),
+            "match_id": mid, "match_label": f"{match.get('team1','?')} vs {match.get('team2','?')}",
+            "team": p.get("team", ""), "runs": p.get("runs", 0), "balls": p.get("balls", 0),
+            "wickets": p.get("wickets", 0), "runs_conceded": p.get("runs_conceded", 0), "balls_bowled": p.get("balls_bowled", 0),
         })
     return success(perfs)
 
@@ -280,49 +257,23 @@ def add_performance():
         try: return int(v)
         except: return 0
     perf = {
-        "player_id":     data.get("player_id"),
-        "match_id":      data.get("match_id"),
-        "team":          data.get("team"),
-        "runs":          safe_int(data.get("runs")),
-        "balls":         safe_int(data.get("balls")),
-        "wickets":       safe_int(data.get("wickets")),
-        "runs_conceded": safe_int(data.get("runs_conceded")),
-        "balls_bowled":  safe_int(data.get("balls_bowled"))
+        "player_id": data.get("player_id"), "match_id": data.get("match_id"), "team": data.get("team"),
+        "runs": safe_int(data.get("runs")), "balls": safe_int(data.get("balls")),
+        "wickets": safe_int(data.get("wickets")), "runs_conceded": safe_int(data.get("runs_conceded")),
+        "balls_bowled": safe_int(data.get("balls_bowled"))
     }
     db.performances.insert_one(perf)
     return success({"msg": "Added"})
 
-@app.route("/performance/<id>", methods=["PUT"])
-def update_performance(id):
-    oid = safe_object_id(id)
-    if not oid:
-        return error("Invalid ID")
-    data = request.json or {}
-    def safe_int(v):
-        try: return int(v)
-        except: return 0
-    db.performances.update_one({"_id": oid}, {"$set": {
-        "player_id":     data.get("player_id"),
-        "match_id":      data.get("match_id"),
-        "team":          data.get("team"),
-        "runs":          safe_int(data.get("runs")),
-        "balls":         safe_int(data.get("balls")),
-        "wickets":       safe_int(data.get("wickets")),
-        "runs_conceded": safe_int(data.get("runs_conceded")),
-        "balls_bowled":  safe_int(data.get("balls_bowled"))
-    }})
-    return success({"msg": "Updated"})
-
 @app.route("/performance/<id>", methods=["DELETE"])
 def delete_performance(id):
     oid = safe_object_id(id)
-    if not oid:
-        return error("Invalid ID")
+    if not oid: return error("Invalid ID")
     db.performances.delete_one({"_id": oid})
     return success({"msg": "Deleted"})
 
 # ======================
-# PLAYER STATS
+# ANALYTICS & STATS[cite: 1]
 # ======================
 @app.route("/player-stats", methods=["GET"])
 def player_stats():
@@ -332,338 +283,147 @@ def player_stats():
     for perf in perfs:
         pid = perf.get("player_id")
         if not pid: continue
-        if pid not in stats:
-            stats[pid] = {"runs": 0, "balls": 0, "wickets": 0, "runs_conceded": 0, "balls_bowled": 0, "matches": set()}
-        stats[pid]["runs"]          += int(perf.get("runs", 0))
-        stats[pid]["balls"]         += int(perf.get("balls", 0))
-        stats[pid]["wickets"]       += int(perf.get("wickets", 0))
+        stats.setdefault(pid, {"runs": 0, "balls": 0, "wickets": 0, "runs_conceded": 0, "balls_bowled": 0, "matches": set()})
+        stats[pid]["runs"] += int(perf.get("runs", 0))
+        stats[pid]["balls"] += int(perf.get("balls", 0))
+        stats[pid]["wickets"] += int(perf.get("wickets", 0))
         stats[pid]["runs_conceded"] += int(perf.get("runs_conceded", 0))
-        stats[pid]["balls_bowled"]  += int(perf.get("balls_bowled", 0))
+        stats[pid]["balls_bowled"] += int(perf.get("balls_bowled", 0))
         stats[pid]["matches"].add(perf.get("match_id", ""))
+    
     result = []
     for pid, s in stats.items():
         player = players_map.get(pid)
         if not player: continue
-        bf  = s["balls"]; bb = s["balls_bowled"]
-        sr  = round(s["runs"] / bf * 100, 2) if bf else 0.0
-        od  = bb / 6 if bb else 0
+        sr = round(s["runs"] / s["balls"] * 100, 2) if s["balls"] else 0.0
+        od = s["balls_bowled"] / 6 if s["balls_bowled"] else 0
         eco = round(s["runs_conceded"] / od, 2) if od else 0.0
         result.append({
-            "player_id":     pid,
-            "name":          player.get("name"),
-            "role":          player.get("role"),
-            "photo":         player.get("photo", ""),
-            "team":          player.get("team", ""),
-            "matches":       len(s["matches"]),
-            "runs":          s["runs"],
-            "balls":         bf,
-            "strike_rate":   sr,
-            "wickets":       s["wickets"],
-            "runs_conceded": s["runs_conceded"],
-            "overs":         f"{bb // 6}.{bb % 6}",
-            "economy":       eco,
+            "player_id": pid, "name": player.get("name"), "role": player.get("role"),
+            "photo": player.get("photo", ""), "team": player.get("team", ""),
+            "matches": len(s["matches"]), "runs": s["runs"], "balls": s["balls"],
+            "strike_rate": sr, "wickets": s["wickets"], "runs_conceded": s["runs_conceded"],
+            "overs": f"{s['balls_bowled'] // 6}.{s['balls_bowled'] % 6}", "economy": eco,
         })
     return success(result)
 
-# player form — per-match performance for graph
-@app.route("/player-form/<player_id>", methods=["GET"])
-def player_form(player_id):
-    perfs = list(db.performances.find({"player_id": player_id}))
-    matches_map = {str(m["_id"]): m for m in db.matches.find()}
-    form_data = []
-    for p in perfs:
-        mid   = p.get("match_id", "")
-        match = matches_map.get(mid, {})
-        label = f"{match.get('team1','?')} vs {match.get('team2','?')}"
-        form_data.append({
-            "match":    label,
-            "date":     match.get("date", ""),
-            "runs":     p.get("runs", 0),
-            "wickets":  p.get("wickets", 0),
-            "balls":    p.get("balls", 0),
-            "sr":       round(p.get("runs",0)/p.get("balls",1)*100,1) if p.get("balls") else 0
-        })
-    form_data.sort(key=lambda x: x["date"])
-    return success(form_data)
-
-# ======================
-# ALL-TIME RECORDS
-# ======================
-@app.route("/records", methods=["GET"])
-def records():
+@app.route("/leaderboard", methods=["GET"])
+def leaderboard():
+    # Synchronized sorting logic for the Dashboard Chart[cite: 1]
     perfs = list(db.performances.find())
-    players_map = {str(p["_id"]): p for p in db.players.find()}
-    agg = {}
+    stats = {}
     for p in perfs:
-        pid = p.get("player_id")
-        if not pid: continue
-        agg.setdefault(pid, {"runs": 0, "balls": 0, "wickets": 0, "runs_conceded": 0, "balls_bowled": 0, "matches": set()})
-        agg[pid]["runs"]          += int(p.get("runs", 0))
-        agg[pid]["balls"]         += int(p.get("balls", 0))
-        agg[pid]["wickets"]       += int(p.get("wickets", 0))
-        agg[pid]["runs_conceded"] += int(p.get("runs_conceded", 0))
-        agg[pid]["balls_bowled"]  += int(p.get("balls_bowled", 0))
-        agg[pid]["matches"].add(p.get("match_id", ""))
-    rows = []
-    for pid, s in agg.items():
-        player = players_map.get(pid)
-        if not player: continue
-        bf = s["balls"]; bb = s["balls_bowled"]; od = bb/6 if bb else 0
-        rows.append({
-            "player_id":   pid, "name": player.get("name"), "role": player.get("role"),
-            "matches":     len(s["matches"]),
-            "runs":        s["runs"],
-            "strike_rate": round(s["runs"]/bf*100,2) if bf else 0,
-            "wickets":     s["wickets"],
-            "economy":     round(s["runs_conceded"]/od,2) if od else 0,
-        })
-    return success({
-        "most_runs":    sorted(rows, key=lambda x: -x["runs"])[:5],
-        "most_wickets": sorted(rows, key=lambda x: -x["wickets"])[:5],
-        "best_sr":      sorted([r for r in rows if r["runs"]>=20], key=lambda x: -x["strike_rate"])[:5],
-        "best_economy": sorted([r for r in rows if r["wickets"]>0], key=lambda x: x["economy"])[:5],
-    })
+        team = p.get("team"); pid = p.get("player_id")
+        if not team or not pid: continue
+        stats.setdefault(team, {}).setdefault(pid, {"runs": 0, "balls": 0})
+        stats[team][pid]["runs"] += int(p.get("runs", 0))
+        stats[team][pid]["balls"] += int(p.get("balls", 0))
+    
+    players_map = {str(p["_id"]): p for p in db.players.find()}
+    result = []
+    for team, p_data in stats.items():
+        t_players = []; total = 0
+        for pid, val in p_data.items():
+            player = players_map.get(pid)
+            if not player: continue
+            runs = val["runs"]; balls = val["balls"]
+            sr = round(runs / balls * 100, 2) if balls else 0.0
+            total += runs
+            t_players.append({"player_id": pid, "name": player.get("name"), "runs": runs, "strike_rate": sr})
+        result.append({"team": team, "total_runs": total, "players": sorted(t_players, key=lambda x: x["runs"], reverse=True)})
+    
+    return success(sorted(result, key=lambda x: x["total_runs"], reverse=True))
 
-# ======================
-# HEAD-TO-HEAD
-# ======================
-@app.route("/head-to-head", methods=["GET"])
-def head_to_head():
-    t1 = request.args.get("team1",""); t2 = request.args.get("team2","")
-    if not t1 or not t2: return error("team1 and team2 required")
-    matches = list(db.matches.find({"$or":[
-        {"team1":t1,"team2":t2},{"team1":t2,"team2":t1}
-    ]}))
-    t1_wins=0; t2_wins=0; draws=0; history=[]
-    for m in matches:
-        mid = str(m["_id"])
-        perfs = list(db.performances.find({"match_id":mid}))
-        scores = {}
-        for p in perfs:
-            t = p.get("team")
-            if t: scores[t] = scores.get(t,0)+p.get("runs",0)
-        t1r=scores.get(m["team1"],0); t2r=scores.get(m["team2"],0)
-        if t1r>t2r: winner=m["team1"]; (t1_wins if m["team1"]==t1 else t2_wins).__class__
-        elif t2r>t1r: winner=m["team2"]
-        else: winner="Draw"
-        if winner==t1: t1_wins+=1
-        elif winner==t2: t2_wins+=1
-        else: draws+=1
-        history.append({"match_id":mid,"team1":m["team1"],"team2":m["team2"],
-                        "t1_runs":t1r,"t2_runs":t2r,"winner":winner,
-                        "venue":m.get("venue",""),"date":m.get("date",""),"format":m.get("format","")})
-    return success({"team1":t1,"team2":t2,"total":len(matches),
-                    "team1_wins":t1_wins,"team2_wins":t2_wins,"draws":draws,"history":history})
-
-# ======================
-# POINTS TABLE
-# ======================
 @app.route("/points-table", methods=["GET"])
 def points_table():
     matches = list(db.matches.find())
     table = {}
-
     for m in matches:
-        mid = str(m["_id"])
-        t1 = m.get("team1")
-        t2 = m.get("team2")
-        if not t1 or not t2:
-            continue
-
+        mid = str(m["_id"]); t1 = m.get("team1"); t2 = m.get("team2")
+        if not t1 or not t2: continue
         for t in (t1, t2):
-            table.setdefault(t, {
-                "team": t, "played": 0, "won": 0, "lost": 0,
-                "draw": 0, "points": 0, "nrr": 0.0
-            })
-
-        perfs = list(db.performances.find({"match_id": mid}))
-        scores = {}
-        for p in perfs:
+            table.setdefault(t, {"team": t, "played": 0, "won": 0, "lost": 0, "draw": 0, "points": 0, "nrr": 0.0})
+        
+        scores = {t1: 0, t2: 0}
+        for p in db.performances.find({"match_id": mid}):
             team = p.get("team")
-            if team:
-                scores[team] = scores.get(team, 0) + int(p.get("runs", 0))
+            if team in scores: scores[team] += int(p.get("runs", 0))
 
-        t1r = scores.get(t1, 0)
-        t2r = scores.get(t2, 0)
-
-        table[t1]["played"] += 1
-        table[t2]["played"] += 1
-
-        if t1r > t2r:
-            table[t1]["won"] += 1
-            table[t1]["points"] += 2
-            table[t2]["lost"] += 1
-        elif t2r > t1r:
-            table[t2]["won"] += 1
-            table[t2]["points"] += 2
-            table[t1]["lost"] += 1
+        table[t1]["played"] += 1; table[t2]["played"] += 1
+        if scores[t1] > scores[t2]:
+            table[t1]["won"] += 1; table[t1]["points"] += 2; table[t2]["lost"] += 1
+        elif scores[t2] > scores[t1]:
+            table[t2]["won"] += 1; table[t2]["points"] += 2; table[t1]["lost"] += 1
         else:
-            table[t1]["draw"] += 1
-            table[t2]["draw"] += 1
-            table[t1]["points"] += 1
-            table[t2]["points"] += 1
+            table[t1]["draw"] += 1; table[t2]["draw"] += 1; table[t1]["points"] += 1; table[t2]["points"] += 1
+        
+        table[t1]["nrr"] += (scores[t1] - scores[t2]) / 100.0
+        table[t2]["nrr"] += (scores[t2] - scores[t1]) / 100.0
 
-        table[t1]["nrr"] += (t1r - t2r) / 100.0
-        table[t2]["nrr"] += (t2r - t1r) / 100.0
+    res = sorted(table.values(), key=lambda x: (-x["points"], -x["nrr"]))
+    for r in res: r["nrr"] = round(r["nrr"], 2)
+    return success(res)
 
-    result = list(table.values())
-    result.sort(key=lambda x: (-x["points"], -x["nrr"]))
-
-    for r in result:
-        r["nrr"] = round(r["nrr"], 2)
-
-    return jsonify({"status": "success", "data": result})
-
-# ======================
-# MATCH RESULT + POTM
-# ======================
 @app.route("/match-result/<match_id>", methods=["GET"])
 def match_result(match_id):
-    oid=safe_object_id(match_id)
+    oid = safe_object_id(match_id)
     if not oid: return error("Invalid Match ID")
-    match=db.matches.find_one({"_id":oid})
+    match = db.matches.find_one({"_id": oid})
     if not match: return error("Match not found")
-    team1=match.get("team1"); team2=match.get("team2")
-    perfs=list(db.performances.find({"match_id":match_id}))
-    team_scores={}
+    
+    perfs = list(db.performances.find({"match_id": match_id}))
+    scores = {match["team1"]: 0, match["team2"]: 0}
     for p in perfs:
-        t=p.get("team")
-        if t: team_scores[t]=team_scores.get(t,0)+p.get("runs",0)
-    t1r=team_scores.get(team1,0); t2r=team_scores.get(team2,0)
-    if t1r>t2r: winner=team1
-    elif t2r>t1r: winner=team2
-    else: winner="Draw"
-    def score_perf(p):
-        runs=p.get("runs",0); wickets=p.get("wickets",0)
-        balls=p.get("balls_bowled",0); conceded=p.get("runs_conceded",0)
-        overs=balls/6 if balls else 0; economy=conceded/overs if overs else 0
-        return (runs*1.2)+(wickets*25)-(economy*2)
-    best_player="N/A"; best_score=-999
-    players_map={str(p["_id"]):p for p in db.players.find()}
-    candidates=perfs if winner=="Draw" else [p for p in perfs if p.get("team")==winner]
-    if not candidates: candidates=perfs
-    for p in candidates:
-        s=score_perf(p)
-        if s>best_score:
-            best_score=s; player=players_map.get(p.get("player_id"))
-            best_player=player.get("name") if player else "Unknown"
+        t = p.get("team")
+        if t in scores: scores[t] += p.get("runs", 0)
+
+    winner = "Draw"
+    if scores[match["team1"]] > scores[match["team2"]]: winner = match["team1"]
+    elif scores[match["team2"]] > scores[match["team1"]]: winner = match["team2"]
+
+    # POTM Calculation Logic[cite: 1]
+    best_player = "N/A"; best_score = -999
+    players_map = {str(p["_id"]): p for p in db.players.find()}
+    for p in perfs:
+        score = (p.get("runs", 0) * 1.2) + (p.get("wickets", 0) * 25)
+        if score > best_score:
+            best_score = score
+            player = players_map.get(p.get("player_id"))
+            best_player = player.get("name") if player else "Unknown"
+
     return success({
-        "match":{"team1":team1,"team2":team2,"team1_runs":t1r,"team2_runs":t2r,"winner":winner},
-        "player_of_match":{"name":best_player,"score":round(best_score,2) if best_score!=-999 else 0}
+        "match": {"team1": match["team1"], "team2": match["team2"], "team1_runs": scores[match["team1"]], "team2_runs": scores[match["team2"]], "winner": winner},
+        "player_of_match": {"name": best_player, "score": round(best_score, 2)}
     })
 
-# ======================
-# LEADERBOARD
-# ======================
-@app.route("/leaderboard", methods=["GET"])
-def leaderboard():
-    perfs=list(db.performances.find()); stats={}
-    for p in perfs:
-        team=p.get("team"); pid=p.get("player_id")
-        if not team or not pid: continue
-        stats.setdefault(team,{}).setdefault(pid,{"runs":0,"balls":0})
-        stats[team][pid]["runs"]+=int(p.get("runs",0))
-        stats[team][pid]["balls"]+=int(p.get("balls",0))
-    players_map={str(p["_id"]):p for p in db.players.find()}
-    result=[]
-    for team,players in stats.items():
-        team_players=[]; total=0
-        for pid,val in players.items():
-            player=players_map.get(pid)
-            if not player: continue
-            runs=val["runs"]; balls=val["balls"]
-            sr=round(runs/balls*100,2) if balls else 0.0; total+=runs
-            team_players.append({"player_id":pid,"name":player.get("name"),"runs":runs,"strike_rate":sr})
-        result.append({"team":team,"total_runs":total,
-                       "players":sorted(team_players,key=lambda x:x["runs"],reverse=True)})
-    result.sort(key=lambda x:x["total_runs"],reverse=True)
-    return success(result)
-
-# ======================
-# BOWLING STATS
-# ======================
 @app.route("/bowling-stats", methods=["GET"])
 def bowling_stats():
-    perfs=list(db.performances.find()); stats={}
-    for p in perfs:
-        pid=p.get("player_id")
+    # Re-using logic to match Bowling.jsx table[cite: 1]
+    stats = {}
+    for p in db.performances.find():
+        pid = p.get("player_id")
         if not pid: continue
-        stats.setdefault(pid,{"runs_conceded":0,"balls":0,"wickets":0})
-        stats[pid]["runs_conceded"]+=int(p.get("runs_conceded",0))
-        stats[pid]["balls"]+=int(p.get("balls_bowled",0))
-        stats[pid]["wickets"]+=int(p.get("wickets",0))
-    players_map={str(p["_id"]):p for p in db.players.find()}
-    result=[]
-    for pid,s in stats.items():
-        player=players_map.get(pid)
-        if not player: continue
-        if s["balls"]==0 and s["wickets"]==0 and s["runs_conceded"]==0: continue
-        balls=s["balls"]; od=balls/6 if balls>0 else 0
-        result.append({"name":player.get("name"),"wickets":s["wickets"],
-                       "runs_conceded":s["runs_conceded"],
-                       "overs":f"{balls//6}.{balls%6}",
-                       "economy":round(s["runs_conceded"]/od,2) if od>0 else 0})
-    result.sort(key=lambda x:(-x["wickets"],x["economy"]))
-    return success(result)
-
-# ======================
-# EXPORT CSV
-# ======================
-@app.route("/export/batting", methods=["GET"])
-def export_batting():
-    perfs=list(db.performances.find())
-    players_map={str(p["_id"]):p for p in db.players.find()}
-    agg={}
-    for p in perfs:
-        pid=p.get("player_id")
-        if not pid: continue
-        agg.setdefault(pid,{"runs":0,"balls":0,"wickets":0})
-        agg[pid]["runs"]+=int(p.get("runs",0))
-        agg[pid]["balls"]+=int(p.get("balls",0))
-        agg[pid]["wickets"]+=int(p.get("wickets",0))
-    output=io.StringIO(); writer=csv.writer(output)
-    writer.writerow(["Player","Role","Runs","Balls","Strike Rate","Wickets"])
-    for pid,s in agg.items():
-        player=players_map.get(pid)
-        if not player: continue
-        sr=round(s["runs"]/s["balls"]*100,2) if s["balls"] else 0
-        writer.writerow([player.get("name"),player.get("role"),s["runs"],s["balls"],sr,s["wickets"]])
-    output.seek(0)
-    return send_file(io.BytesIO(output.getvalue().encode()),mimetype="text/csv",
-                     as_attachment=True,download_name="batting_stats.csv")
-
-@app.route("/export/bowling", methods=["GET"])
-def export_bowling():
-    perfs=list(db.performances.find())
-    players_map={str(p["_id"]):p for p in db.players.find()}
-    agg={}
-    for p in perfs:
-        pid=p.get("player_id")
-        if not pid: continue
-        agg.setdefault(pid,{"runs_conceded":0,"balls":0,"wickets":0})
-        agg[pid]["runs_conceded"]+=int(p.get("runs_conceded",0))
-        agg[pid]["balls"]+=int(p.get("balls_bowled",0))
-        agg[pid]["wickets"]+=int(p.get("wickets",0))
-    output=io.StringIO(); writer=csv.writer(output)
-    writer.writerow(["Player","Wickets","Overs","Runs Conceded","Economy"])
-    for pid,s in agg.items():
-        player=players_map.get(pid)
-        if not player: continue
-        balls=s["balls"]; od=balls/6 if balls else 0
-        eco=round(s["runs_conceded"]/od,2) if od else 0
-        writer.writerow([player.get("name"),s["wickets"],f"{balls//6}.{balls%6}",s["runs_conceded"],eco])
-    output.seek(0)
-    return send_file(io.BytesIO(output.getvalue().encode()),mimetype="text/csv",
-                     as_attachment=True,download_name="bowling_stats.csv")
-
+        stats.setdefault(pid, {"runs_conceded": 0, "balls": 0, "wickets": 0})
+        stats[pid]["runs_conceded"] += int(p.get("runs_conceded", 0))
+        stats[pid]["balls"] += int(p.get("balls_bowled", 0))
+        stats[pid]["wickets"] += int(p.get("wickets", 0))
     
-# ======================
-# RESET
-# ======================
+    players_map = {str(p["_id"]): p for p in db.players.find()}
+    result = []
+    for pid, s in stats.items():
+        player = players_map.get(pid)
+        if not player or s["balls"] == 0: continue
+        od = s["balls"] / 6
+        result.append({
+            "name": player.get("name"), "wickets": s["wickets"], "runs_conceded": s["runs_conceded"],
+            "overs": f"{s['balls'] // 6}.{s['balls'] % 6}", "economy": round(s["runs_conceded"] / od, 2)
+        })
+    return success(sorted(result, key=lambda x: (-x["wickets"], x["economy"])))
+
 @app.route("/reset-all", methods=["DELETE"])
 def reset_all():
     db.players.delete_many({}); db.matches.delete_many({}); db.performances.delete_many({})
-    return success({"message": "All data reset"})
+    return success({"message": "Database purged successfully"})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5000)
